@@ -7,6 +7,7 @@ This guide shows you how to set up a simple n8n webhook workflow to send certifi
 Your CertifiKit app sends certificate data to n8n → n8n sends the email → n8n confirms success
 
 **Simple Flow:**
+
 ```
 Your App  →  n8n Webhook  →  Process Data  →  Send Email  →  Respond Success
 ```
@@ -16,6 +17,7 @@ Your App  →  n8n Webhook  →  Process Data  →  Send Email  →  Respond Suc
 ![n8n Workflow - 4 Simple Steps](https://github.com/user-attachments/assets/8f3e3e3c-8b5e-4e3d-9a5e-8e3e3e3e3e3e)
 
 The workflow contains just 4 nodes:
+
 1. **Webhook** - Receives POST request
 2. **Code in JavaScript** - Formats email and certificate
 3. **Send a message** (Gmail) - Sends the email
@@ -49,6 +51,7 @@ Step 4: Respond           →  Returns success/failure to your app
 6. **Copy this URL** - you'll need it for your app's `.env.local`
 
 **Expected Request Format:**
+
 ```json
 {
   "recipientEmail": "john@example.com",
@@ -203,18 +206,21 @@ const htmlEmail = `
 `;
 
 // Prepare output for Gmail node
-return [{
-  json: {
-    to: data.recipientEmail,
-    subject: data.subject,
-    htmlMessage: htmlEmail,
-    recipientName: data.recipientName,
+return [
+  {
+    json: {
+      to: data.recipientEmail,
+      subject: data.subject,
+      htmlMessage: htmlEmail,
+      recipientName: data.recipientName,
+    },
+    binary: item.binary,
   },
-  binary: item.binary,
-}];
+];
 ```
 
 **What this does:**
+
 - ✅ Extracts data from webhook
 - ✅ Converts certificate image to attachment
 - ✅ Creates beautiful HTML email
@@ -232,7 +238,7 @@ return [{
    - **Email Type**: HTML
    - **Message (HTML)**: `={{ $json.htmlMessage }}`
    - **Attachments**: Select `certificate` from dropdown
-4. **Credentials**: 
+4. **Credentials**:
    - Click "Create New Credential"
    - Follow Gmail OAuth setup
    - Or use **SMTP** node instead (see below)
@@ -269,6 +275,7 @@ If you prefer SMTP (works with any email provider):
 5. **Response Code**: 200
 
 **For Error Handling:**
+
 - Connect Gmail's **error output** to another Respond node
 - Set Response Code: 500
 - Body: `{ "success": false, "error": "{{ $json.error }}" }`
@@ -284,6 +291,7 @@ N8N_WEBHOOK_URL=https://your-n8n.com/webhook/certificate-email-api
 ```
 
 **Get your n8n URL:**
+
 - n8n Cloud: `https://yourname.app.n8n.cloud/webhook/certificate-email-api`
 - Self-hosted: `https://your-domain.com/webhook/certificate-email-api`
 - Local testing: `http://localhost:5678/webhook-test/certificate-email-api`
@@ -315,6 +323,7 @@ curl -X POST https://your-n8n.com/webhook/certificate-email-api \
 ```
 
 **Expected Response:**
+
 ```json
 {
   "success": true,
@@ -348,6 +357,7 @@ Your final n8n workflow should look like this:
 ## 🔒 Security Best Practices
 
 ### **1. Use HTTPS**
+
 - Always use HTTPS for production webhooks
 - n8n Cloud provides this automatically
 - Self-hosted: Use reverse proxy (nginx/Caddy) with SSL
@@ -358,18 +368,21 @@ Add webhook authentication header:
 
 1. In Webhook node, enable **Authentication**
 2. Set **Header Auth**:
+
    - Header Name: `X-Webhook-Secret`
    - Header Value: `your-secret-key-123`
 
 3. In your app's API route:
+
 ```typescript
-const webhookSecret = request.headers.get('X-Webhook-Secret');
+const webhookSecret = request.headers.get("X-Webhook-Secret");
 if (webhookSecret !== process.env.N8N_WEBHOOK_SECRET) {
-  return new Response('Unauthorized', { status: 401 });
+  return new Response("Unauthorized", { status: 401 });
 }
 ```
 
 ### **3. Rate Limiting**
+
 - Gmail: 500 emails/day (free), 2000/day (Google Workspace)
 - Add delays if sending bulk emails
 - Consider using email service like SendGrid for high volume
@@ -379,23 +392,27 @@ if (webhookSecret !== process.env.N8N_WEBHOOK_SECRET) {
 ## 🐛 Troubleshooting
 
 ### **❌ Webhook not receiving data?**
+
 - Check webhook URL is correct in `.env.local`
 - Verify webhook is **Production URL**, not Test URL
 - Check n8n workflow is **activated** (toggle in top right)
 - Look for CORS errors in browser console
 
 ### **❌ Email not sending?**
+
 - Verify Gmail credentials are correct
 - Check "Allow less secure apps" for Gmail (or use App Password)
 - Review Gmail node execution logs in n8n
 - Try SMTP node instead
 
 ### **❌ Certificate not attaching?**
+
 - Ensure base64 image is valid (starts with `data:image/png;base64,`)
 - Check binary data is properly set in Code node
 - Verify attachment name in Gmail node: `certificate`
 
 ### **❌ Error: "Workflow not found"**
+
 - Make sure workflow is **saved** and **activated**
 - Check URL path matches webhook configuration
 - Restart n8n if self-hosted
@@ -405,6 +422,7 @@ if (webhookSecret !== process.env.N8N_WEBHOOK_SECRET) {
 ## 📊 Monitoring & Logs
 
 ### **View Execution History:**
+
 1. Go to **Executions** tab in n8n
 2. See all webhook calls with timestamps
 3. Click any execution to see:
@@ -414,6 +432,7 @@ if (webhookSecret !== process.env.N8N_WEBHOOK_SECRET) {
    - Any errors
 
 ### **Enable Error Notifications:**
+
 1. Workflow Settings → Error Workflow
 2. Create error notification workflow
 3. Get notified via email/Slack when emails fail
@@ -442,13 +461,14 @@ Add a **Switch node** after Webhook:
 const templateType = $json.body.templateType;
 
 // Route 1: Certificate emails
-// Route 2: Reminder emails  
+// Route 2: Reminder emails
 // Route 3: Welcome emails
 ```
 
 ### **Track Email Opens**
 
 Add tracking pixel in HTML:
+
 ```html
 <img src="https://your-tracker.com/pixel?id=123" width="1" height="1" />
 ```
@@ -588,23 +608,23 @@ for (const item of items) {
       <h1>Certificate Delivery</h1>
       <p>Your Organization Certificate System</p>
     </div>
-    
+
     <div class="content">
       <div class="greeting">Hello ${recipientName}! 👋</div>
       <div class="message-box">${message}</div>
-      
+
       <div class="attachment-card">
         <div style="font-size: 40px; margin-bottom: 10px;">📎</div>
         <h3>Your Certificate is Attached</h3>
         <p>Download the PNG file attached to this email</p>
       </div>
-      
+
       <p style="text-align: center; color: ${colors.neutral[600]};">
         <strong>Need assistance?</strong><br>
         Our support team is here to help you 24/7
       </p>
     </div>
-    
+
     <div class="footer">
       <div style="font-size: 24px; font-weight: 700; margin-bottom: 15px;">
         YOUR ORGANIZATION
@@ -659,3 +679,4 @@ Before going live, verify:
 ---
 
 *Last updated: January 2025*
+```

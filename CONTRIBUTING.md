@@ -35,10 +35,12 @@ We are committed to providing a welcoming and inclusive experience for everyone.
 ### 1. Reporting Bugs
 
 **Before submitting:**
+
 - Check if the bug has already been reported
 - Collect relevant information (browser, OS, steps to reproduce)
 
 **Submit an issue with:**
+
 - Clear, descriptive title
 - Detailed steps to reproduce
 - Expected vs. actual behavior
@@ -48,6 +50,7 @@ We are committed to providing a welcoming and inclusive experience for everyone.
 ### 2. Suggesting Features
 
 **Good feature requests include:**
+
 - Clear problem statement
 - Proposed solution
 - Alternative solutions considered
@@ -56,6 +59,7 @@ We are committed to providing a welcoming and inclusive experience for everyone.
 ### 3. Contributing Code
 
 We welcome:
+
 - Bug fixes
 - New features
 - Documentation improvements
@@ -145,6 +149,7 @@ git checkout -b fix/bug-description
 ```
 
 Branch naming:
+
 - `feature/` - New features
 - `fix/` - Bug fixes
 - `docs/` - Documentation updates
@@ -245,10 +250,14 @@ const generateCertificate = async (data: any) => {
 interface ButtonProps {
   label: string;
   onClick: () => void;
-  variant?: 'primary' | 'secondary';
+  variant?: "primary" | "secondary";
 }
 
-export const Button: React.FC<ButtonProps> = ({ label, onClick, variant = 'primary' }) => {
+export const Button: React.FC<ButtonProps> = ({
+  label,
+  onClick,
+  variant = "primary",
+}) => {
   return (
     <button onClick={onClick} className={`btn btn-${variant}`}>
       {label}
@@ -289,11 +298,11 @@ export const Button = ({ label, onClick, variant }) => {
 
 ```typescript
 // 1. Imports (grouped and sorted)
-import React from 'react';
-import { useState, useEffect } from 'react';
+import React from "react";
+import { useState, useEffect } from "react";
 
-import { Button } from '@/components/ui/button';
-import { generateCertificate } from '@/lib/batch-generator';
+import { Button } from "@/components/ui/button";
+import { generateCertificate } from "@/lib/batch-generator";
 
 // 2. Type definitions
 interface Props {
@@ -304,17 +313,17 @@ interface Props {
 export const MyComponent: React.FC<Props> = () => {
   // 4. Hooks
   const [state, setState] = useState();
-  
+
   // 5. Functions
   const handleClick = () => {
     // ...
   };
-  
+
   // 6. Effects
   useEffect(() => {
     // ...
   }, []);
-  
+
   // 7. Render
   return <div>...</div>;
 };
@@ -383,6 +392,7 @@ Before submitting a PR, test:
 ### Testing Areas
 
 1. **Certificate Generation**
+
    - Single certificate generation
    - Batch generation with CSV
    - Template selection
@@ -390,12 +400,14 @@ Before submitting a PR, test:
    - Image export quality
 
 2. **Email Queue**
+
    - Adding to queue
    - Status updates
    - Filtering and search
    - Batch operations
 
 3. **Authentication**
+
    - Login/logout
    - Session persistence
    - Protected routes
@@ -409,7 +421,7 @@ Before submitting a PR, test:
 ## 🎨 UI/UX Guidelines
 
 - **Consistency**: Follow existing design patterns
-- **Accessibility**: 
+- **Accessibility**:
   - Use semantic HTML
   - Add ARIA labels where needed
   - Ensure keyboard navigation works
@@ -455,6 +467,7 @@ By contributing, you agree that your contributions will be licensed under the MI
 ## 🙏 Recognition
 
 Contributors will be:
+
 - Listed in GitHub contributors
 - Mentioned in release notes (for significant contributions)
 - Forever appreciated by the community! ❤️

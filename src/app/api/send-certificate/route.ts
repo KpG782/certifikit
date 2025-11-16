@@ -17,6 +17,8 @@ export async function POST(request: NextRequest) {
       email_sender_name,
       primary_color,
       secondary_color,
+      accent_color,
+      highlight_color,
     } = body;
 
     // Validation
@@ -58,6 +60,8 @@ export async function POST(request: NextRequest) {
     if (email_sender_name) payload.email_sender_name = email_sender_name;
     if (primary_color) payload.primary_color = primary_color;
     if (secondary_color) payload.secondary_color = secondary_color;
+    if (accent_color) payload.accent_color = accent_color;
+    if (highlight_color) payload.highlight_color = highlight_color;
 
     // Send data to n8n webhook
     const n8nResponse = await fetch(n8nWebhookUrl, {

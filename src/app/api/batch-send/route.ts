@@ -53,19 +53,18 @@ export async function POST(request: NextRequest) {
           timestamp: new Date().toISOString(),
         };
 
-        // For UMak preset, add branding fields (n8n will use these for custom HTML)
-        if (item.subject === "Your e-certificate is now ready") {
-          payload.email_header_title = "Certificate of Achievement";
-          payload.email_header_subtitle = "University of Makati";
-          payload.email_footer_company = "UNIVERSITY OF MAKATI";
-          payload.email_footer_dept =
-            "College of Computing and Information Sciences";
-          payload.email_sender_name = "University of Makati";
-          // UMak Official Colors in HSLA format
-          payload.primary_color = "hsla(58, 100%, 47%, 1)"; // UMak Yellow #F0E900
-          payload.secondary_color = "hsla(232, 63%, 32%, 1)"; // UMak Dark Blue #1D2981
-          payload.accent_color = "hsla(201, 69%, 52%, 1)"; // UMak Sky Blue #2A9EDE
-          payload.highlight_color = "hsla(352, 99%, 44%, 1)"; // UMak Bright Red #DF0020
+        // Add default branding colors (can be overridden per email)
+        payload.primary_color = payload.primary_color || "hsla(220, 90%, 56%, 1)"; // Default Blue
+        payload.secondary_color = payload.secondary_color || "hsla(220, 90%, 35%, 1)"; // Dark Blue
+        payload.accent_color = payload.accent_color || "hsla(45, 100%, 51%, 1)"; // Gold
+        payload.highlight_color = payload.highlight_color || "hsla(352, 99%, 44%, 1)"; // Red
+
+        // Optional: Add custom branding for specific presets
+        if (item.subject?.includes("University") || item.subject?.includes("Achievement")) {
+          payload.email_header_title = payload.email_header_title || "Certificate of Achievement";
+          payload.email_header_subtitle = payload.email_header_subtitle || "Your Organization";
+          payload.email_footer_company = payload.email_footer_company || "YOUR ORGANIZATION";
+          payload.email_footer_dept = payload.email_footer_dept || "Certificate Delivery System";
         }
 
         const response = await fetch(n8nWebhookUrl, {
