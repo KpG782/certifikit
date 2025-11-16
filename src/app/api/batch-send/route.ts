@@ -9,6 +9,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "No items selected" }, { status: 400 });
     }
 
+    // Limit batch size to 50 to prevent server overload
+    if (ids.length > 50) {
+      return NextResponse.json(
+        { 
+          error: "Batch size limit exceeded", 
+          message: "Maximum 50 emails can be sent at once",
+          requested: ids.length,
+          limit: 50
+        },
+        { status: 429 }
+      );
+    }
+
     const n8nWebhookUrl = process.env.N8N_WEBHOOK_URL;
     if (!n8nWebhookUrl) {
       return NextResponse.json(

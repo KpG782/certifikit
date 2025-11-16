@@ -117,7 +117,7 @@ export async function getEmailQueue(filters?: {
       paramIndex++;
     }
 
-    query += " ORDER BY created_at DESC";
+    query += " ORDER BY created_at DESC LIMIT 50";
 
     const result = await client.query(query, params);
     return result.rows;
