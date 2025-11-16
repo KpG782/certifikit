@@ -26,10 +26,11 @@ A modern, open-source certificate generator built with Next.js 14 and Tailwind C
 
 ### Quick Links
 
-- **[Docker Setup Guide](./DOCKER-SETUP.md)** - Complete Docker installation and configuration ⭐
-- **[n8n Setup Guide](./docs/n8n-setup.md)** - n8n workflow configuration for email automation
-- **[Email Presets Guide](./docs/email-presets-guide.md)** - Professional email templates
-- **[API Documentation](./docs/API.md)** - REST API endpoints and usage
+- **[Quick Start Guide](docs/QUICK-START.md)** - Get up and running in 5 minutes ⚡
+- **[Docker Deployment Guide](docs/DOCKER-SETUP.md)** - Complete Docker setup and configuration 🐳
+- **[n8n Email Setup](docs/n8n-setup.md)** - Configure automated email sending 📧
+- **[Contributing Guide](CONTRIBUTING.md)** - Help improve CertifiKit 🤝
+- **[License](LICENSE)** - MIT License 📄
 
 ### Email Integration
 
@@ -40,8 +41,6 @@ This system includes a complete email queue with:
 - **4 Email Presets**: Professional templates for different use cases
 - **Batch Support**: Queue multiple certificates with personalized emails
 - **Status Tracking**: Real-time monitoring with auto-refresh
-
-See **[docs/UPDATE-SUMMARY.md](./docs/UPDATE-SUMMARY.md)** for complete details.
 
 ## 🔐 Authentication
 
@@ -274,7 +273,31 @@ The application adapts to all screen sizes with mobile-optimized interface, touc
 
 ## 🚀 Deployment
 
-### Prerequisites
+### Option 1: Docker Deployment (Recommended) 🐳
+
+The easiest way to deploy CertifiKit is using Docker. See the **[Docker Deployment Guide](./docs/DOCKER-SETUP.md)** for complete instructions.
+
+**Quick Start with Docker:**
+
+```bash
+# Clone the repository
+git clone https://github.com/KpG782/certifikit.git
+cd certifikit
+
+# Copy environment file
+cp .env.example .env.local
+
+# Edit .env.local with your credentials
+
+# Build and run with Docker Compose
+docker-compose up -d
+
+# Access at http://localhost:3000
+```
+
+### Option 2: Manual Deployment
+
+#### Prerequisites
 
 - Node.js 18+ installed
 - npm or yarn package manager

@@ -1,8 +1,10 @@
 # dependencies
 node_modules
+.pnpm-store
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+pnpm-debug.log*
 
 # testing
 coverage
@@ -28,14 +30,35 @@ build
 
 # typescript
 *.tsbuildinfo
+next-env.d.ts
 
 # git
 .git
 .gitignore
+README.md
 
 # IDE
 .vscode
 .idea
+*.swp
+*.swo
+*~
 
 # OS
 Thumbs.db
+.DS_Store
+
+# Docker
+Dockerfile*
+docker-compose*
+.dockerignore
+
+# Documentation
+docs/
+*.md
+!README.md
+
+# Data directories
+data/
+public/certificates/
+public/signatures/
