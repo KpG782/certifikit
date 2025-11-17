@@ -69,11 +69,12 @@ export async function POST(request: NextRequest) {
     const stats = await getEmailQueueStats();
     if (stats.total >= 50) {
       return NextResponse.json(
-        { 
-          error: "Queue limit reached", 
-          message: "Maximum 50 emails allowed in queue. Please send or delete existing emails first.",
+        {
+          error: "Queue limit reached",
+          message:
+            "Maximum 50 emails allowed in queue. Please send or delete existing emails first.",
           currentTotal: stats.total,
-          limit: 50
+          limit: 50,
         },
         { status: 429 } // 429 Too Many Requests
       );

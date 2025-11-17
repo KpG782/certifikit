@@ -12,11 +12,11 @@ export async function POST(request: NextRequest) {
     // Limit batch size to 50 to prevent server overload
     if (ids.length > 50) {
       return NextResponse.json(
-        { 
-          error: "Batch size limit exceeded", 
+        {
+          error: "Batch size limit exceeded",
           message: "Maximum 50 emails can be sent at once",
           requested: ids.length,
-          limit: 50
+          limit: 50,
         },
         { status: 429 }
       );
@@ -67,17 +67,27 @@ export async function POST(request: NextRequest) {
         };
 
         // Add default branding colors (can be overridden per email)
-        payload.primary_color = payload.primary_color || "hsla(220, 90%, 56%, 1)"; // Default Blue
-        payload.secondary_color = payload.secondary_color || "hsla(220, 90%, 35%, 1)"; // Dark Blue
+        payload.primary_color =
+          payload.primary_color || "hsla(220, 90%, 56%, 1)"; // Default Blue
+        payload.secondary_color =
+          payload.secondary_color || "hsla(220, 90%, 35%, 1)"; // Dark Blue
         payload.accent_color = payload.accent_color || "hsla(45, 100%, 51%, 1)"; // Gold
-        payload.highlight_color = payload.highlight_color || "hsla(352, 99%, 44%, 1)"; // Red
+        payload.highlight_color =
+          payload.highlight_color || "hsla(352, 99%, 44%, 1)"; // Red
 
         // Optional: Add custom branding for specific presets
-        if (item.subject?.includes("University") || item.subject?.includes("Achievement")) {
-          payload.email_header_title = payload.email_header_title || "Certificate of Achievement";
-          payload.email_header_subtitle = payload.email_header_subtitle || "Your Organization";
-          payload.email_footer_company = payload.email_footer_company || "YOUR ORGANIZATION";
-          payload.email_footer_dept = payload.email_footer_dept || "Certificate Delivery System";
+        if (
+          item.subject?.includes("University") ||
+          item.subject?.includes("Achievement")
+        ) {
+          payload.email_header_title =
+            payload.email_header_title || "Certificate of Achievement";
+          payload.email_header_subtitle =
+            payload.email_header_subtitle || "Your Organization";
+          payload.email_footer_company =
+            payload.email_footer_company || "YOUR ORGANIZATION";
+          payload.email_footer_dept =
+            payload.email_footer_dept || "Certificate Delivery System";
         }
 
         const response = await fetch(n8nWebhookUrl, {

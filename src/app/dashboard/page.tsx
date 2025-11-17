@@ -17,6 +17,7 @@ import {
   Layout,
   Menu,
   X,
+  Video,
 } from "lucide-react";
 
 const cardVariants = {
@@ -90,6 +91,13 @@ function DashboardContent() {
       path: "/email-queue",
       color: "text-orange-600 dark:text-orange-400",
       bgColor: "bg-orange-100 dark:bg-orange-900/30",
+    },
+    {
+      name: "Tutorials",
+      icon: Video,
+      path: "/tutorials",
+      color: "text-pink-600 dark:text-pink-400",
+      bgColor: "bg-pink-100 dark:bg-pink-900/30",
     },
   ];
 
@@ -489,33 +497,22 @@ function DashboardContent() {
                 whileHover={{ y: -8, transition: { duration: 0.2 } }}
                 className="bg-white dark:bg-zinc-800 rounded-lg shadow p-6 cursor-pointer"
               >
-                <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900 rounded-lg flex items-center justify-center mb-4">
-                  <svg
-                    className="w-6 h-6 text-purple-600"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                    />
-                  </svg>
+                <div className="w-12 h-12 bg-pink-100 dark:bg-pink-900 rounded-lg flex items-center justify-center mb-4">
+                  <Video className="w-6 h-6 text-pink-600" />
                 </div>
-                <h3 className="text-lg font-semibold mb-2">
-                  Recent Certificates
-                </h3>
+                <h3 className="text-lg font-semibold mb-2">Video Tutorials</h3>
                 <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                  View your recently created certificates
+                  Learn with step-by-step video guides
                 </p>
                 <motion.div
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                 >
-                  <Button variant="outline" className="w-full">
-                    Coming Soon
+                  <Button
+                    onClick={() => router.push("/tutorials")}
+                    className="w-full bg-pink-600 hover:bg-pink-700"
+                  >
+                    Watch Now
                   </Button>
                 </motion.div>
               </motion.div>
