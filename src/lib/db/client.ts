@@ -1,5 +1,5 @@
-import Database from "better-sqlite3";
-import { drizzle } from "drizzle-orm/better-sqlite3";
+import { createClient } from "@libsql/client";
+import { drizzle } from "drizzle-orm/libsql";
 import * as schema from "./schema";
 import path from "path";
 import fs from "fs";
@@ -10,13 +10,19 @@ if (!fs.existsSync(dataDir)) {
   fs.mkdirSync(dataDir, { recursive: true });
 }
 
+// Convert absolute path to file URL for Windows
 const dbPath = path.join(dataDir, "certificates.db");
-const sqlite = new Database(dbPath);
-export const db = drizzle(sqlite, { schema });
+const dbUrl = `file:${dbPath.replace(/\\/g, "/")}`;
+
+const client = createClient({
+  url: dbUrl,
+});
+
+export const db = drizzle(client, { schema });
 
 // Initialize database
 export function initDb() {
-  sqlite.exec(`
+  client.execute(`
     CREATE TABLE IF NOT EXISTS email_queue (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       recipient_email TEXT NOT NULL,
@@ -29,7 +35,9 @@ export function initDb() {
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
       sent_at TEXT
     )
-  `);
+  `).catch(err => {
+    console.error("Failed to initialize database:", err);
+  });
 }
 
 initDb();

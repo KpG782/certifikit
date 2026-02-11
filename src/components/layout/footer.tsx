@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Github, Linkedin, Mail, Heart } from "lucide-react";
+import { Github, Linkedin, Mail } from "lucide-react";
 import Image from "next/image";
 
 export default function Footer() {
@@ -24,15 +24,10 @@ export default function Footer() {
               </h3>
             </div>
             <p className="text-sm text-slate-600 dark:text-slate-400">
-              Open-source certificate generator built with Next.js 14 and
+              Open-source certificate generator built with Next.js 16 and
               Tailwind CSS. Create, customize, and export professional
               certificates with ease.
             </p>
-            <div className="flex items-center gap-1 text-sm text-slate-600 dark:text-slate-400">
-              <span>Made with</span>
-              <Heart className="h-4 w-4 text-red-500 fill-red-500" />
-              <span>for the community</span>
-            </div>
           </div>
 
           {/* Quick Links */}
@@ -90,10 +85,10 @@ export default function Footer() {
                 Ken Patrick Garcia
               </p>
               <p className="text-xs text-slate-600 dark:text-slate-400">
-                Full-Stack Developer | CS Student
+                Full Stack AI Engineer @ Romega Solutions
               </p>
               <p className="text-xs text-slate-600 dark:text-slate-400">
-                University of Makati
+                React, TypeScript, Flutter | Building Production AI Systems
               </p>
             </div>
             <div className="flex gap-3 pt-2">
