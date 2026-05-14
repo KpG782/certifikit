@@ -8,13 +8,14 @@ import QueueFilters from "@/components/email-queue/queue-filters";
 import QueueActions from "@/components/email-queue/queue-actions";
 import QueueTable from "@/components/email-queue/queue-table";
 import SidebarNav from "@/components/layout/sidebar-nav";
+import QueueTour from "@/components/onboarding/queue-tour";
 import { Button } from "@/components/ui/button";
 import {
   EmailQueueItem,
   EmailQueueFilters,
   EmailQueueStats,
 } from "@/types/email-queue";
-import { ArrowLeft, Mail, Loader2 } from "lucide-react";
+import { ArrowLeft, Mail, Loader2, GraduationCap } from "lucide-react";
 
 export default function EmailQueuePage() {
   const router = useRouter();
@@ -24,6 +25,7 @@ export default function EmailQueuePage() {
     pending: 0,
     sent: 0,
     failed: 0,
+    cancelled: 0,
   });
   const [filters, setFilters] = useState<EmailQueueFilters>({});
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
@@ -31,6 +33,21 @@ export default function EmailQueuePage() {
   const [isSending, setIsSending] = useState(false);
   const [viewItem, setViewItem] = useState<EmailQueueItem | null>(null);
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
+  const [showTour, setShowTour] = useState(false);
+
+  // Auto-open the tour only when arriving from the Batch "Go to Email Queue"
+  // hand-off. The button there sets this localStorage flag, so the explicit
+  // click counts as the user opting in.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const flag = localStorage.getItem("showQueueTourOnce");
+    if (flag === "1") {
+      localStorage.removeItem("showQueueTourOnce");
+      // Give layout a beat so spotlight anchors exist before measurement.
+      const t = setTimeout(() => setShowTour(true), 600);
+      return () => clearTimeout(t);
+    }
+  }, []);
 
   // Fetch queue items
   const fetchQueue = async () => {
@@ -102,92 +119,83 @@ export default function EmailQueuePage() {
     }
   };
 
-  // Send single email directly via n8n webhook
+  // Send a single queued email. The server handles pending → sending → sent/failed
+  // transitions atomically so the row's status stays consistent even on errors.
   const handleSendOne = async (id: number) => {
     const confirmed = confirm("Send this email now?");
     if (!confirmed) return;
 
     setIsSending(true);
+    setItems((prev) =>
+      prev.map((i) => (i.id === id ? { ...i, status: "sending" } : i))
+    );
+
     try {
-      // Find the item from the current items list
-      const item = items.find((i) => i.id === id);
-      if (!item) {
-        alert("Email not found in queue");
-        return;
-      }
-
-      // Update status to "sending" immediately
-      setItems((prev) =>
-        prev.map((i) => (i.id === id ? { ...i, status: "sending" } : i))
-      );
-
-      // Call the send-certificate API which uses n8n webhook
-      const response = await fetch("/api/send-certificate", {
+      const response = await fetch("/api/send-one", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: item.recipientEmail,
-          subject: item.subject,
-          message: item.message,
-          certificateImage: item.certificateImage,
-          recipientName: item.recipientName,
-        }),
+        body: JSON.stringify({ id }),
       });
-
       const data = await response.json();
 
-      if (data.success) {
-        // Update status to "sent" in database
-        await fetch("/api/update-status", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            id: item.id,
-            status: "sent",
-            sentAt: new Date().toISOString(),
-          }),
-        });
-
+      if (response.ok && data.success) {
         alert("Email sent successfully!");
-        fetchQueue();
       } else {
-        // Mark as failed
-        await fetch("/api/update-status", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            id: item.id,
-            status: "failed",
-            errorMessage: data.error || "Failed to send email",
-          }),
-        });
-
-        alert("Failed to send email: " + data.error);
-        fetchQueue();
+        alert("Failed to send email: " + (data.error || data.details || ""));
       }
     } catch (error) {
       console.error("Send error:", error);
-
-      // Mark as failed on network error
-      try {
-        await fetch("/api/update-status", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            id: id,
-            status: "failed",
-            errorMessage:
-              error instanceof Error ? error.message : "Network error",
-          }),
-        });
-      } catch (e) {
-        console.error("Failed to update status:", e);
-      }
-
       alert("Network error. Please check your internet connection.");
-      fetchQueue();
     } finally {
       setIsSending(false);
+      fetchQueue();
+    }
+  };
+
+  // Cancel a pending row — keeps the record but skips it in bulk-send.
+  const handleCancelOne = async (id: number) => {
+    const confirmed = confirm("Cancel this email? It will be skipped from sending.");
+    if (!confirmed) return;
+
+    try {
+      const response = await fetch("/api/email-queue", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, status: "cancelled" }),
+      });
+      const data = await response.json();
+      if (!data.success) {
+        alert("Failed to cancel: " + (data.error || ""));
+      }
+      fetchQueue();
+    } catch (error) {
+      console.error("Cancel error:", error);
+      alert("Network error.");
+    }
+  };
+
+  // Retry / continue — revert failed or cancelled rows back to pending,
+  // clearing the previous error message and sent timestamp.
+  const handleRetryOne = async (id: number) => {
+    try {
+      const response = await fetch("/api/email-queue", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id,
+          status: "pending",
+          errorMessage: null,
+          sentAt: null,
+        }),
+      });
+      const data = await response.json();
+      if (!data.success) {
+        alert("Failed to retry: " + (data.error || ""));
+      }
+      fetchQueue();
+    } catch (error) {
+      console.error("Retry error:", error);
+      alert("Network error.");
     }
   };
 
@@ -236,10 +244,13 @@ export default function EmailQueuePage() {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.3 }}
-      className="min-h-screen bg-gray-50 dark:bg-zinc-950 p-6"
+      className="min-h-screen bg-gray-50 dark:bg-zinc-950 p-4 sm:p-6"
     >
       {/* Floating Sidebar Navigation */}
       <SidebarNav />
+
+      {/* Queue Tour Overlay */}
+      {showTour && <QueueTour onComplete={() => setShowTour(false)} />}
 
       <div className="max-w-7xl mx-auto">
         {/* Header */}
@@ -247,20 +258,28 @@ export default function EmailQueuePage() {
           initial={{ y: -20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ duration: 0.4, delay: 0.1 }}
-          className="flex items-center justify-between mb-6"
+          className="flex items-start sm:items-center justify-between gap-3 mb-6"
         >
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" onClick={() => router.push("/generator")}>
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Generator
+          <div className="flex items-start sm:items-center gap-2 sm:gap-4 min-w-0">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => router.push("/generator")}
+              aria-label="Back to generator"
+              className="shrink-0"
+            >
+              <ArrowLeft className="w-4 h-4 sm:mr-2" />
+              <span className="hidden sm:inline">Back to Generator</span>
             </Button>
-            <div>
-              <h1 className="text-3xl font-bold flex items-center gap-3">
-                <Mail className="w-8 h-8 text-blue-600" />
-                Email Queue
+            <div className="min-w-0">
+              <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold flex items-center gap-2 sm:gap-3">
+                <Mail className="w-6 h-6 sm:w-7 sm:h-7 lg:w-8 lg:h-8 text-blue-600 shrink-0" />
+                <span className="truncate">Email Queue</span>
               </h1>
-              <p className="text-gray-600 dark:text-gray-400 mt-1 flex items-center gap-2">
-                Manage and send certificate emails
+              <div className="text-gray-600 dark:text-gray-400 mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
+                <span className="hidden sm:inline">
+                  Manage and send certificate emails
+                </span>
                 <motion.span
                   initial={{ scale: 0 }}
                   animate={{ scale: 1 }}
@@ -268,18 +287,30 @@ export default function EmailQueuePage() {
                   className="inline-flex items-center gap-1 text-xs bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 px-2 py-1 rounded-full"
                 >
                   <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-                  Live (updates every 5s)
+                  <span className="hidden xs:inline">Live (updates every 5s)</span>
+                  <span className="xs:hidden">Live</span>
                 </motion.span>
-                <span className="text-xs text-gray-500 dark:text-gray-400">
+                <span className="hidden md:inline text-xs text-gray-500 dark:text-gray-400">
                   Last refresh: {lastRefresh.toLocaleTimeString()}
                 </span>
-              </p>
+              </div>
             </div>
           </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowTour(true)}
+            aria-label="Tutorial"
+            className="shrink-0 border-emerald-300 text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800 dark:border-emerald-700 dark:text-emerald-300"
+          >
+            <GraduationCap className="w-3.5 h-3.5 sm:mr-1.5" />
+            <span className="hidden sm:inline">Tutorial</span>
+          </Button>
         </motion.div>
 
         {/* Stats */}
         <motion.div
+          data-tour="queue-stats"
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ duration: 0.4, delay: 0.2 }}
@@ -289,6 +320,7 @@ export default function EmailQueuePage() {
 
         {/* Filters */}
         <motion.div
+          data-tour="queue-filters"
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ duration: 0.4, delay: 0.3 }}
@@ -302,6 +334,7 @@ export default function EmailQueuePage() {
 
         {/* Actions */}
         <motion.div
+          data-tour="queue-actions"
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ duration: 0.4, delay: 0.4 }}
@@ -333,6 +366,7 @@ export default function EmailQueuePage() {
           ) : (
             <motion.div
               key="table"
+              data-tour="queue-table"
               initial={{ y: 20, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               exit={{ opacity: 0 }}
@@ -344,6 +378,8 @@ export default function EmailQueuePage() {
                 onSelectionChange={setSelectedIds}
                 onDelete={handleDeleteOne}
                 onSend={handleSendOne}
+                onCancel={handleCancelOne}
+                onRetry={handleRetryOne}
                 onView={setViewItem}
               />
             </motion.div>

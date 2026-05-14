@@ -326,20 +326,24 @@ function TemplatesContent() {
       {/* Header */}
       <header className="bg-white dark:bg-zinc-800 shadow">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
+          <div className="flex items-center justify-between gap-2 sm:gap-4">
+            <div className="flex items-center gap-2 sm:gap-4 min-w-0">
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => router.push("/dashboard")}
+                aria-label="Back to dashboard"
+                className="shrink-0"
               >
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Back to Dashboard
+                <ArrowLeft className="w-4 h-4 sm:mr-2" />
+                <span className="hidden sm:inline">Back to Dashboard</span>
               </Button>
-              <h1 className="text-2xl font-bold">Certificate Templates</h1>
+              <h1 className="text-lg sm:text-2xl font-bold truncate">
+                <span className="hidden md:inline">Certificate </span>Templates
+              </h1>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 shrink-0">
               <input
                 type="file"
                 id="template-upload"
@@ -352,10 +356,13 @@ function TemplatesContent() {
                   document.getElementById("template-upload")?.click()
                 }
                 disabled={isUploading}
+                aria-label={isUploading ? "Uploading template" : "Upload template"}
                 className="bg-(--primary-600) hover:bg-(--primary-700)"
               >
-                <Upload className="w-4 h-4 mr-2" />
-                {isUploading ? "Uploading..." : "Upload Template"}
+                <Upload className="w-4 h-4 sm:mr-2" />
+                <span className="hidden sm:inline">
+                  {isUploading ? "Uploading..." : "Upload Template"}
+                </span>
               </Button>
             </div>
           </div>

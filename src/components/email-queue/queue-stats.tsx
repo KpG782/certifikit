@@ -2,7 +2,7 @@
 
 import { motion } from "framer-motion";
 import { EmailQueueStats } from "@/types/email-queue";
-import { Mail, Clock, CheckCircle, XCircle } from "lucide-react";
+import { Mail, Clock, CheckCircle, XCircle, Ban } from "lucide-react";
 
 interface QueueStatsProps {
   stats: EmailQueueStats;
@@ -54,10 +54,19 @@ export default function QueueStats({ stats }: QueueStatsProps) {
       textColor: "text-red-600 dark:text-red-300",
       valueColor: "text-red-600 dark:text-red-400",
     },
+    {
+      label: "Cancelled",
+      value: stats.cancelled,
+      color: "gray",
+      icon: Ban,
+      bgColor: "bg-gray-100 dark:bg-gray-800",
+      textColor: "text-gray-600 dark:text-gray-300",
+      valueColor: "text-gray-600 dark:text-gray-400",
+    },
   ];
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+    <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
       {statItems.map((stat, index) => {
         const Icon = stat.icon;
         return (

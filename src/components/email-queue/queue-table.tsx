@@ -19,7 +19,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { EmailQueueItem } from "@/types/email-queue";
-import { MoreVertical, Eye, Trash2, Send } from "lucide-react";
+import { MoreVertical, Eye, Trash2, Send, Ban, RefreshCw } from "lucide-react";
 import { format } from "date-fns";
 
 interface QueueTableProps {
@@ -28,6 +28,8 @@ interface QueueTableProps {
   onSelectionChange: (ids: number[]) => void;
   onDelete: (id: number) => void;
   onSend: (id: number) => void;
+  onCancel: (id: number) => void;
+  onRetry: (id: number) => void;
   onView: (item: EmailQueueItem) => void;
 }
 
@@ -50,6 +52,8 @@ export default function QueueTable({
   onSelectionChange,
   onDelete,
   onSend,
+  onCancel,
+  onRetry,
   onView,
 }: QueueTableProps) {
   const allSelected = items.length > 0 && selectedIds.length === items.length;
@@ -93,6 +97,11 @@ export default function QueueTable({
       failed: {
         variant: "destructive",
         className: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
+      },
+      cancelled: {
+        variant: "secondary",
+        className:
+          "bg-gray-200 text-gray-700 dark:bg-gray-800 dark:text-gray-300",
       },
     };
 
@@ -214,6 +223,19 @@ export default function QueueTable({
                         <DropdownMenuItem onClick={() => onSend(item.id)}>
                           <Send className="w-4 h-4 mr-2" />
                           Send Now
+                        </DropdownMenuItem>
+                      )}
+                      {item.status === "pending" && (
+                        <DropdownMenuItem onClick={() => onCancel(item.id)}>
+                          <Ban className="w-4 h-4 mr-2" />
+                          Cancel
+                        </DropdownMenuItem>
+                      )}
+                      {(item.status === "failed" ||
+                        item.status === "cancelled") && (
+                        <DropdownMenuItem onClick={() => onRetry(item.id)}>
+                          <RefreshCw className="w-4 h-4 mr-2" />
+                          {item.status === "failed" ? "Retry" : "Continue"}
                         </DropdownMenuItem>
                       )}
                       <DropdownMenuItem

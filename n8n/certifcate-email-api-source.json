@@ -1,0 +1,154 @@
+{
+  "name": "certifcate-email-api-source",
+  "nodes": [
+    {
+      "parameters": {
+        "sendTo": "={{ $json.recipient }}",
+        "subject": "={{ $json.subject }}",
+        "message": "={{ $json.html_message }}",
+        "options": {
+          "attachmentsUi": {
+            "attachmentsBinary": [
+              {
+                "property": "certificate"
+              }
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        992,
+        0
+      ],
+      "id": "e4afa6d8-a3ef-4580-9a1b-15a1994c03a6",
+      "name": "Send a message",
+      "webhookId": "a36e2041-9916-44ce-9e6a-ed7d5b5461f0",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "JWInagJXqaCi7pYH",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "certicate-email-source",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        416,
+        0
+      ],
+      "id": "54989857-a461-4f6a-bfaa-0ce64d409ddd",
+      "name": "Webhook",
+      "webhookId": "f88257de-acca-40e5-a7d6-ca09c7047c69"
+    },
+    {
+      "parameters": {
+        "options": {
+          "responseCode": 200,
+          "responseKey": ""
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        1184,
+        0
+      ],
+      "id": "0008f8d1-898c-4e0d-93ee-2c64518e7e6d",
+      "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ⚠️ RATE LIMITER: 10 emails per day per email address\nconst items = $input.all();\n\n// Get current date (YYYY-MM-DD)\nconst today = new Date().toISOString().split('T')[0];\n\n// Access n8n's static data storage (persists between executions)\nconst staticData = $getWorkflowStaticData('global');\n\n// Initialize rate limit storage if not exists\nif (!staticData.rateLimits) {\n  staticData.rateLimits = {};\n}\n\n// Clean up old dates (older than today)\nObject.keys(staticData.rateLimits).forEach(key => {\n  if (!key.includes(today)) {\n    delete staticData.rateLimits[key];\n  }\n});\n\n// Process each item\nconst processedItems = [];\n\nfor (const item of items) {\n  const email = item.json.recipient || item.json.recipient_email;\n  \n  if (!email) {\n    throw new Error('No recipient email found in data');\n  }\n  \n  // Create unique key: email_YYYY-MM-DD\n  const rateLimitKey = `${email}_${today}`;\n  \n  // Get current count for this email today\n  if (!staticData.rateLimits[rateLimitKey]) {\n    staticData.rateLimits[rateLimitKey] = 0;\n  }\n  \n  // Increment counter\n  staticData.rateLimits[rateLimitKey]++;\n  \n  const currentCount = staticData.rateLimits[rateLimitKey];\n  \n  // Check if limit exceeded\n  if (currentCount > 10) {\n    console.error(`❌ Rate limit exceeded for ${email}: ${currentCount} emails today`);\n    throw new Error(\n      `Rate limit exceeded: ${email} has already received ${currentCount - 1} emails today. ` +\n      `Daily limit is 10 emails per recipient. Please try again tomorrow.`\n    );\n  }\n  \n  // Log successful rate check\n  console.log(`✅ Rate check passed for ${email}: ${currentCount}/10 emails today`);\n  \n  // Add rate limit info to the item\n  item.json.rate_limit_info = {\n    email: email,\n    count_today: currentCount,\n    limit: 10,\n    remaining: 10 - currentCount,\n    date: today\n  };\n  \n  processedItems.push(item);\n}\n\nreturn processedItems;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        816,
+        0
+      ],
+      "id": "d9df9eed-b695-4618-84f9-8cf8ca12ff8c",
+      "name": "Rate Limiter"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Generic Certificate Email Processor\n// Works for any organization - fully customizable\n\nconst items = $input.all();\n\n// Debug: Log incoming data\nconsole.log('Received items:', JSON.stringify(items, null, 2));\n\n// Validate incoming data\nif (!items || items.length === 0) {\n  throw new Error('No input data received from webhook');\n}\n\n// Process each certificate email\nfor (const item of items) {\n  console.log('Processing item:', JSON.stringify(item.json, null, 2));\n  \n  // Extract data from webhook - handle nested 'body' property\n  let data = item.json;\n  \n  if (data.body) {\n    if (typeof data.body === 'string') {\n      try {\n        data = JSON.parse(data.body);\n      } catch (e) {\n        console.log('Could not parse body string, using original data');\n      }\n    } else if (typeof data.body === 'object') {\n      data = data.body;\n    }\n  }\n  \n  // Extract fields with customizable defaults\n  const {\n    recipient_email,\n    recipient_name,\n    certificate_image,  // Base64 image data\n    subject = 'Your Certificate of Achievement',\n    message = 'Congratulations on your achievement!',\n    \n    // Customizable email branding (all optional)\n    email_header_title = '🎓 Certificate of Achievement',\n    email_header_subtitle = 'Professional Certification Program',\n    email_footer_company = 'Your Organization',\n    email_footer_dept = 'Certification Department',\n    email_sender_name = 'Certification Team',\n    \n    // Customizable colors (HSLA format for flexibility)\n    primary_color = 'hsla(220, 90%, 56%, 1)',      // Default: Blue\n    secondary_color = 'hsla(220, 90%, 35%, 1)',    // Default: Dark Blue\n    accent_color = 'hsla(45, 100%, 51%, 1)',       // Default: Gold\n    highlight_color = 'hsla(10, 90%, 50%, 1)'      // Default: Red\n  } = data;\n  \n  // Debug extracted values\n  console.log('Email:', recipient_email);\n  console.log('Name:', recipient_name);\n  console.log('Image size:', certificate_image ? certificate_image.length : 'undefined');\n  \n  // Validate required fields\n  if (!recipient_email) {\n    throw new Error(`recipient_email is required. Received: ${JSON.stringify(data)}`);\n  }\n  if (!recipient_name) {\n    throw new Error(`recipient_name is required. Received: ${JSON.stringify(data)}`);\n  }\n  if (!certificate_image) {\n    throw new Error(`certificate_image is required. Received: ${JSON.stringify(data)}`);\n  }\n  \n  // Process certificate image\n  let base64Data = certificate_image;\n  \n  // Remove data URL prefix if exists\n  if (base64Data && base64Data.startsWith('data:')) {\n    base64Data = base64Data.split(',')[1];\n  }\n  \n  // Validate base64 data\n  if (!base64Data || base64Data.trim().length === 0) {\n    throw new Error('certificate_image is empty or invalid');\n  }\n  \n  // Convert to Buffer for email attachment\n  let buffer;\n  try {\n    buffer = Buffer.from(base64Data, 'base64');\n  } catch (error) {\n    throw new Error(`Failed to convert base64: ${error.message}`);\n  }\n  \n  if (buffer.length === 0) {\n    throw new Error('Generated buffer is empty - invalid base64 data');\n  }\n  \n  console.log('Buffer created, size:', buffer.length);\n  \n  // Prepare attachment\n  item.binary = {\n    certificate: {\n      data: buffer.toString('base64'),\n      mimeType: 'image/png',\n      fileName: `Certificate_${recipient_name.replace(/\\s+/g, '_')}.png`\n    }\n  };\n  \n  // Build customizable HTML email\n  const htmlEmail = `\n<!DOCTYPE html>\n<html>\n<head>\n  <meta charset=\"UTF-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n  <style>\n    * {\n      margin: 0;\n      padding: 0;\n      box-sizing: border-box;\n    }\n    body { \n      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;\n      line-height: 1.6;\n      color: #2c3e50;\n      background-color: #f4f6f9;\n    }\n    .email-container {\n      width: 100%;\n      background-color: #f4f6f9;\n      padding: 0;\n      margin: 0;\n    }\n    .email-content {\n      max-width: 100%;\n      margin: 0 auto;\n      background-color: #ffffff;\n    }\n    .header {\n      background: linear-gradient(135deg, ${primary_color} 0%, ${secondary_color} 100%);\n      padding: 50px 40px;\n      text-align: center;\n      color: #ffffff;\n    }\n    .header-title {\n      font-size: 32px;\n      font-weight: 700;\n      margin: 0 0 10px 0;\n      letter-spacing: 0.5px;\n      text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);\n    }\n    .header-subtitle {\n      font-size: 16px;\n      font-weight: 400;\n      opacity: 0.95;\n      margin: 0;\n    }\n    .content-wrapper {\n      padding: 50px 60px;\n      background-color: #ffffff;\n    }\n    .message-body {\n      font-size: 16px;\n      color: #34495e;\n      line-height: 1.9;\n      white-space: pre-line;\n      margin: 0;\n      padding: 25px;\n      background-color: #f8f9fa;\n      border-left: 4px solid ${primary_color};\n      border-radius: 4px;\n    }\n    .footer {\n      background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);\n      color: #ffffff;\n      padding: 40px 60px;\n      text-align: center;\n    }\n    .footer-company {\n      font-size: 24px;\n      font-weight: 700;\n      margin-bottom: 15px;\n      color: ${accent_color};\n      text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.5);\n    }\n    .footer-divider {\n      height: 2px;\n      background: ${accent_color};\n      margin: 20px auto;\n      max-width: 200px;\n      opacity: 0.8;\n    }\n    .footer-text {\n      font-size: 14px;\n      color: rgba(255, 255, 255, 0.85);\n      margin: 8px 0;\n      line-height: 1.6;\n    }\n    .footer-disclaimer {\n      font-size: 11px;\n      color: rgba(255, 255, 255, 0.6);\n      margin-top: 25px;\n      padding-top: 20px;\n      border-top: 1px solid rgba(255, 255, 255, 0.1);\n      font-style: italic;\n    }\n    @media only screen and (max-width: 600px) {\n      .content-wrapper, .footer, .header {\n        padding: 30px 20px !important;\n      }\n      .header-title {\n        font-size: 24px !important;\n      }\n    }\n  </style>\n</head>\n<body>\n  <div class=\"email-container\">\n    <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" style=\"background-color: #f4f6f9;\">\n      <tr>\n        <td>\n          <div class=\"email-content\">\n            \n            <div class=\"header\">\n              <h1 class=\"header-title\">${email_header_title}</h1>\n              <p class=\"header-subtitle\">${email_header_subtitle}</p>\n            </div>\n            \n            <div class=\"content-wrapper\">\n              <div class=\"message-body\">${message}</div>\n            </div>\n            \n            <div class=\"footer\">\n              <div class=\"footer-company\">${email_footer_company}</div>\n              <div class=\"footer-divider\"></div>\n              <p class=\"footer-text\">${email_footer_dept}</p>\n              <p class=\"footer-text\">This is an automated message from our certificate delivery system.</p>\n              <p class=\"footer-disclaimer\">\n                This message contains confidential information and is intended only for the individual named.\n                <br><br>\n                © ${new Date().getFullYear()} ${email_footer_company}. All rights reserved.\n              </p>\n            </div>\n            \n          </div>\n        </td>\n      </tr>\n    </table>\n  </div>\n</body>\n</html>\n  `;\n  \n  // Store data for Gmail node\n  item.json.recipient = recipient_email;\n  item.json.subject = subject;\n  item.json.html_message = htmlEmail;\n  item.json.recipient_name = recipient_name;\n  \n  console.log('✅ Successfully processed for:', recipient_email);\n}\n\nreturn items;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        608,
+        0
+      ],
+      "id": "9624edfa-c9ca-4007-8a48-3b84b025928c",
+      "name": "Generic Email Processor"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Send a message": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Generic Email Processor",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Rate Limiter": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generic Email Processor": {
+      "main": [
+        [
+          {
+            "node": "Rate Limiter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "701b3291-eaf4-434a-a21b-f285f4acd010",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "6b386af7136a0dcc8fa5c054c7f6833f2e54755797a22833e05465e4a75a36d2"
+  },
+  "id": "jFB0zSSXg35JFlrI",
+  "tags": []
+}

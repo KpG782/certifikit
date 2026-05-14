@@ -2,6 +2,7 @@
 "use client";
 
 import { useState, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -16,6 +17,8 @@ import {
   X,
   FileSpreadsheet,
   Package,
+  GraduationCap,
+  ArrowRight,
 } from "lucide-react";
 import JSZip from "jszip";
 import {
@@ -37,13 +40,16 @@ interface BatchGeneratorProps {
   template: CertificateTemplate | null;
   textElements: TextElement[];
   imageElements: ImageElement[];
+  onStartTutorial?: () => void;
 }
 
 export default function BatchGenerator({
   template,
   textElements,
   imageElements,
+  onStartTutorial,
 }: BatchGeneratorProps) {
+  const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [recipients, setRecipients] = useState<BatchRecipient[]>([]);
   const [selectedRecipients, setSelectedRecipients] = useState<Set<number>>(
@@ -342,92 +348,87 @@ Bob Johnson,bob.johnson@example.com,Manager,2024-01-17`;
     }
   };
 
+  const hasRecipients = recipients.length > 0;
+  const queued = progress.status === "complete";
+
+  // Visual step indicator: derive current step from app state
+  const flowStep = queued ? 5 : hasRecipients ? 3 : 1;
+  const flowLabels = [
+    "Add placeholders",
+    "Upload recipients",
+    "Queue emails",
+    "Send from queue",
+  ];
+
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+    <div
+      data-tour="batch-panel"
+      style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}
+    >
       {/* Header */}
-      <div>
-        <h3
-          style={{
-            fontSize: "1.125rem",
-            fontWeight: 600,
-            marginBottom: "0.5rem",
-          }}
-        >
-          Batch Certificate Generation
-        </h3>
-        <p style={{ fontSize: "0.875rem", color: "#6b7280" }}>
-          Upload a JSON or CSV file with recipient data to generate multiple
-          certificates at once
-        </p>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h3 className="text-base font-semibold mb-0.5">
+            Batch Certificate Generation
+          </h3>
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            Send up to 50 personalized certificates in one go
+          </p>
+        </div>
+        {onStartTutorial && (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={onStartTutorial}
+            className="shrink-0 border-purple-300 text-purple-700 hover:bg-purple-50 hover:text-purple-800 dark:border-purple-700 dark:text-purple-300"
+          >
+            <GraduationCap className="w-3.5 h-3.5 mr-1.5" />
+            Tutorial
+          </Button>
+        )}
       </div>
 
-      {/* Instructions */}
-      <div
-        style={{
-          backgroundColor: "#eff6ff",
-          border: "1px solid #bfdbfe",
-          borderRadius: "0.5rem",
-          padding: "1rem",
-        }}
-      >
-        <h4
-          style={{
-            fontSize: "0.875rem",
-            fontWeight: 600,
-            marginBottom: "0.75rem",
-            color: "#1e40af",
-          }}
-        >
-          📝 How to use:
-        </h4>
-        <ol
-          style={{
-            fontSize: "0.75rem",
-            color: "#1e40af",
-            marginLeft: "1.25rem",
-            display: "flex",
-            flexDirection: "column",
-            gap: "0.25rem",
-          }}
-        >
-          <li>
-            Add text with placeholders like{" "}
-            <code
-              style={{
-                backgroundColor: "#dbeafe",
-                padding: "0.125rem 0.25rem",
-                borderRadius: "0.25rem",
-              }}
-            >
-              {"{{name}}"}
-            </code>
-            ,{" "}
-            <code
-              style={{
-                backgroundColor: "#dbeafe",
-                padding: "0.125rem 0.25rem",
-                borderRadius: "0.25rem",
-              }}
-            >
-              {"{{email}}"}
-            </code>
-          </li>
-          <li>
-            Upload a JSON or CSV file with recipient data (including email
-            addresses)
-          </li>
-          <li>
-            Select which recipients to queue (all are selected by default)
-          </li>
-          <li>
-            Click "Queue Selected Certificates" to add them to the email queue
-          </li>
-          <li>Go to Email Queue page to review and send them</li>
-        </ol>
+      {/* Step tracker */}
+      <div className="rounded-xl border border-purple-200 bg-gradient-to-br from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20 dark:border-purple-800 p-3">
+        <div className="grid grid-cols-4 gap-1.5">
+          {flowLabels.map((label, i) => {
+            const stepNum = i + 1;
+            const isDone = flowStep > stepNum;
+            const isActive = flowStep === stepNum || (flowStep === 5 && stepNum === 4);
+            return (
+              <div
+                key={label}
+                className="flex flex-col items-center text-center"
+              >
+                <div
+                  className={`w-6 h-6 rounded-full text-[10px] font-bold flex items-center justify-center transition-colors ${
+                    isDone
+                      ? "bg-emerald-500 text-white"
+                      : isActive
+                      ? "bg-purple-600 text-white ring-2 ring-purple-200"
+                      : "bg-white text-gray-400 border border-gray-300"
+                  }`}
+                >
+                  {isDone ? <CheckCircle2 className="w-3.5 h-3.5" /> : stepNum}
+                </div>
+                <span
+                  className={`text-[10px] mt-1 leading-tight ${
+                    isActive
+                      ? "text-purple-800 dark:text-purple-200 font-semibold"
+                      : "text-gray-500"
+                  }`}
+                >
+                  {label}
+                </span>
+              </div>
+            );
+          })}
+        </div>
       </div>
 
       {/* Example Download */}
       <div
+        data-tour="batch-examples"
         style={{
           display: "flex",
           flexDirection: "column",
@@ -483,7 +484,7 @@ Bob Johnson,bob.johnson@example.com,Manager,2024-01-17`;
       </div>
 
       {/* File Upload */}
-      <div>
+      <div data-tour="batch-upload">
         <label
           style={{
             display: "block",
@@ -563,6 +564,7 @@ Bob Johnson,bob.johnson@example.com,Manager,2024-01-17`;
       {/* Recipients Preview */}
       {recipients.length > 0 && (
         <div
+          data-tour="batch-recipients"
           style={{
             border: "1px solid #e5e7eb",
             borderRadius: "0.5rem",
@@ -670,40 +672,32 @@ Bob Johnson,bob.johnson@example.com,Manager,2024-01-17`;
 
       {/* Success Message */}
       {progress.status === "complete" && (
-        <div
-          style={{
-            display: "flex",
-            gap: "0.75rem",
-            padding: "0.75rem",
-            backgroundColor: "#f0fdf4",
-            border: "1px solid #bbf7d0",
-            borderRadius: "0.5rem",
-          }}
-        >
-          <CheckCircle2
-            style={{
-              width: "20px",
-              height: "20px",
-              color: "#16a34a",
-              flexShrink: 0,
-            }}
-          />
-          <div>
-            <p
-              style={{
-                fontSize: "0.875rem",
-                fontWeight: 500,
-                color: "#16a34a",
-                marginBottom: "0.125rem",
-              }}
-            >
-              Success!
-            </p>
-            <p style={{ fontSize: "0.75rem", color: "#15803d" }}>
-              {progress.total} certificate{progress.total > 1 ? "s" : ""} queued
-              for sending! Check Email Queue to send them.
-            </p>
+        <div className="rounded-lg border border-emerald-200 bg-emerald-50 dark:bg-emerald-900/20 dark:border-emerald-800 p-3">
+          <div className="flex gap-3">
+            <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-300 mb-0.5">
+                Queued successfully!
+              </p>
+              <p className="text-xs text-emerald-700/90 dark:text-emerald-300/90">
+                {progress.total} certificate{progress.total > 1 ? "s" : ""} are
+                drafted. They won't send until you ship them from the queue.
+              </p>
+            </div>
           </div>
+          <Button
+            onClick={() => {
+              if (typeof window !== "undefined") {
+                localStorage.setItem("showQueueTourOnce", "1");
+              }
+              router.push("/email-queue");
+            }}
+            size="sm"
+            className="w-full mt-3 bg-emerald-600 hover:bg-emerald-700 text-white"
+          >
+            Go to Email Queue
+            <ArrowRight className="w-3.5 h-3.5 ml-1" />
+          </Button>
         </div>
       )}
 
@@ -711,6 +705,7 @@ Bob Johnson,bob.johnson@example.com,Manager,2024-01-17`;
       <Button
         onClick={handleOpenEmailDialog}
         disabled={!canGenerate}
+        data-tour="batch-generate"
         style={{ width: "100%" }}
         size="lg"
       >
@@ -723,6 +718,7 @@ Bob Johnson,bob.johnson@example.com,Manager,2024-01-17`;
 
       {/* Placeholders Info */}
       <div
+        data-tour="batch-placeholders"
         style={{
           backgroundColor: "#fefce8",
           border: "1px solid #fde047",

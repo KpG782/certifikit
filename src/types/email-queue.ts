@@ -1,4 +1,9 @@
-export type EmailStatus = "pending" | "sending" | "sent" | "failed";
+export type EmailStatus =
+  | "pending"
+  | "sending"
+  | "sent"
+  | "failed"
+  | "cancelled";
 
 export interface EmailQueueItem {
   id: number;
@@ -25,4 +30,5 @@ export interface EmailQueueStats {
   pending: number;
   sent: number;
   failed: number;
+  cancelled: number;
 }

@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import ProtectedRoute from "@/components/auth/protected-route";
 import { useAuth } from "@/hooks/use-auth";
@@ -10,6 +10,8 @@ import CertificateCanvas from "@/components/certificate/canvas";
 import TextControls from "@/components/certificate/text-controls";
 import BatchGenerator from "@/components/certificate/batch-generator";
 import GeneratorTour from "@/components/onboarding/generator-tour";
+import EmailGuide from "@/components/onboarding/email-guide";
+import BatchTour from "@/components/onboarding/batch-tour";
 import SidebarNav from "@/components/layout/sidebar-nav";
 import {
   TextElement,
@@ -24,10 +26,17 @@ import {
   LogOut,
   Layers,
   HelpCircle,
-  X,
   Mail,
-  Users,
+  ArrowLeft,
+  MoreVertical,
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const CERTIFICATE_WIDTH = 1200;
 const CERTIFICATE_HEIGHT = 850;
@@ -73,9 +82,8 @@ function GeneratorContent() {
     CertificateTemplate[]
   >([]);
   const [loadingTemplates, setLoadingTemplates] = useState(true);
-  const [showEmailTutorial, setShowEmailTutorial] = useState(false);
-  const [showBatchTutorial, setShowBatchTutorial] = useState(false);
-  const [tutorialStep, setTutorialStep] = useState(0);
+  const [showEmailGuide, setShowEmailGuide] = useState(false);
+  const [showBatchTour, setShowBatchTour] = useState(false);
 
   useEffect(() => {
     // Load available templates
@@ -130,17 +138,11 @@ function GeneratorContent() {
 
     loadTemplates();
 
-    // Check if user has seen generator tour
+    // Auto-show the generator spotlight tour on first visit only.
+    // The Email Guide and Batch Tour are manual-trigger only.
     const hasSeenGeneratorTour = localStorage.getItem("hasSeenGeneratorTour");
     if (!hasSeenGeneratorTour) {
       const timer = setTimeout(() => setShowTour(true), 800);
-      return () => clearTimeout(timer);
-    }
-
-    // Check if user has seen email tutorial
-    const hasSeenEmailTutorial = localStorage.getItem("hasSeenEmailTutorial");
-    if (!hasSeenEmailTutorial && !showTour) {
-      const timer = setTimeout(() => setShowEmailTutorial(true), 2000);
       return () => clearTimeout(timer);
     }
   }, [searchParams]);
@@ -154,19 +156,10 @@ function GeneratorContent() {
     setShowTour(true);
   };
 
-  const handleEmailTutorialComplete = () => {
-    setShowEmailTutorial(false);
-    localStorage.setItem("hasSeenEmailTutorial", "true");
-  };
-
-  const handleShowEmailTutorial = () => {
-    setShowEmailTutorial(true);
-    setTutorialStep(0);
-  };
-
-  const handleShowBatchTutorial = () => {
-    setShowBatchTutorial(true);
-    setTutorialStep(0);
+  const handleStartBatchTour = () => {
+    setActiveTab("batch");
+    // Allow tab switch to render before tour anchors are queried.
+    setTimeout(() => setShowBatchTour(true), 250);
   };
 
   const addTextElement = () => {
@@ -286,331 +279,54 @@ function GeneratorContent() {
       {/* Tour Overlay */}
       {showTour && <GeneratorTour onComplete={handleTourComplete} />}
 
-      {/* Email Tutorial Overlay */}
-      <AnimatePresence>
-        {showEmailTutorial && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4"
-            onClick={handleEmailTutorialComplete}
-          >
-            <motion.div
-              initial={{ scale: 0.9, y: 20 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.9, y: 20 }}
-              onClick={(e) => e.stopPropagation()}
-              className="bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl max-w-2xl w-full p-8 relative"
-            >
-              <button
-                onClick={handleEmailTutorialComplete}
-                className="absolute top-4 right-4 p-2 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-full transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
+      {/* Paginated Email Guide */}
+      <EmailGuide
+        open={showEmailGuide}
+        onClose={() => setShowEmailGuide(false)}
+        onJumpToBatch={() => setActiveTab("batch")}
+        onStartBatchTour={() => setShowBatchTour(true)}
+      />
 
-              <div className="text-center mb-6">
-                <motion.div
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  transition={{ delay: 0.2, type: "spring" }}
-                  className="w-20 h-20 bg-linear-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center mx-auto mb-4"
-                >
-                  <Mail className="w-10 h-10 text-white" />
-                </motion.div>
-                <h2 className="text-3xl font-bold mb-2">
-                  Send Certificates via Email
-                </h2>
-                <p className="text-gray-600 dark:text-gray-400">
-                  Learn how to send certificates to recipients
-                </p>
-              </div>
-
-              <div className="space-y-6">
-                <motion.div
-                  initial={{ x: -20, opacity: 0 }}
-                  animate={{ x: 0, opacity: 1 }}
-                  transition={{ delay: 0.3 }}
-                  className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg"
-                >
-                  <div className="flex items-start gap-3">
-                    <div className="w-8 h-8 bg-blue-500 text-white rounded-full flex items-center justify-center font-bold shrink-0">
-                      1
-                    </div>
-                    <div>
-                      <h3 className="font-semibold mb-1">
-                        Create Your Certificate
-                      </h3>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">
-                        Design your certificate using the canvas. Add text and
-                        images.
-                      </p>
-                    </div>
-                  </div>
-                </motion.div>
-
-                <motion.div
-                  initial={{ x: -20, opacity: 0 }}
-                  animate={{ x: 0, opacity: 1 }}
-                  transition={{ delay: 0.4 }}
-                  className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg"
-                >
-                  <div className="flex items-start gap-3">
-                    <div className="w-8 h-8 bg-green-500 text-white rounded-full flex items-center justify-center font-bold shrink-0">
-                      2
-                    </div>
-                    <div>
-                      <h3 className="font-semibold mb-1">
-                        Single Email (Quick Send)
-                      </h3>
-                      <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-                        Look for the <strong>"Send via Email"</strong> button in
-                        the canvas area.
-                      </p>
-                      <ul className="text-sm text-gray-600 dark:text-gray-400 space-y-1 ml-4">
-                        <li>
-                          • Choose from 4 email presets (Event, KPI, Internship,
-                          UMak)
-                        </li>
-                        <li>• Customize subject and message</li>
-                        <li>• Enter recipient's email</li>
-                        <li>• Click "Send Certificate" to send immediately</li>
-                      </ul>
-                    </div>
-                  </div>
-                </motion.div>
-
-                <motion.div
-                  initial={{ x: -20, opacity: 0 }}
-                  animate={{ x: 0, opacity: 1 }}
-                  transition={{ delay: 0.5 }}
-                  className="bg-purple-50 dark:bg-purple-900/20 p-4 rounded-lg"
-                >
-                  <div className="flex items-start gap-3">
-                    <div className="w-8 h-8 bg-purple-500 text-white rounded-full flex items-center justify-center font-bold shrink-0">
-                      3
-                    </div>
-                    <div>
-                      <h3 className="font-semibold mb-1 flex items-center gap-2">
-                        <Layers className="w-4 h-4" />
-                        Batch Generation (Multiple Emails)
-                      </h3>
-                      <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-                        Click the <strong>"Batch Generation"</strong> tab on the
-                        right panel.
-                      </p>
-                      <ul className="text-sm text-gray-600 dark:text-gray-400 space-y-1 ml-4">
-                        <li>
-                          • Use placeholders like {`{{name}}`}, {`{{email}}`},{" "}
-                          {`{{title}}`}
-                        </li>
-                        <li>• Upload JSON file with recipient data</li>
-                        <li>• Select recipients with checkboxes</li>
-                        <li>• Queue certificates for sending later</li>
-                        <li>• Manage queue in Email Queue page</li>
-                      </ul>
-                    </div>
-                  </div>
-                </motion.div>
-              </div>
-
-              <motion.div
-                initial={{ y: 20, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                transition={{ delay: 0.6 }}
-                className="mt-6 flex gap-3"
-              >
-                <Button
-                  onClick={() => {
-                    handleEmailTutorialComplete();
-                    setActiveTab("batch");
-                  }}
-                  className="flex-1 bg-purple-600 hover:bg-purple-700"
-                >
-                  <Layers className="w-4 h-4 mr-2" />
-                  Try Batch Generation
-                </Button>
-                <Button
-                  onClick={handleEmailTutorialComplete}
-                  variant="outline"
-                  className="flex-1"
-                >
-                  Got it!
-                </Button>
-              </motion.div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* Spotlight Batch Tour */}
+      {showBatchTour && (
+        <BatchTour onComplete={() => setShowBatchTour(false)} />
+      )}
 
       {/* Top Navigation Bar */}
       <motion.header
         initial="hidden"
         animate="visible"
         variants={headerVariants}
-        style={{
-          backgroundColor: "#ffffff",
-          borderBottom: "1px solid #e5e7eb",
-          boxShadow: "0 1px 2px 0 rgba(0, 0, 0, 0.05)",
-        }}
+        className="bg-white dark:bg-zinc-800 border-b border-gray-200 dark:border-zinc-700 shadow-sm sticky top-0 z-20"
       >
-        <div
-          style={{
-            maxWidth: "100%",
-            padding: "0.75rem 1.5rem",
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            gap: "1rem",
-          }}
-        >
-          {/* Left: Back + Title */}
-          <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+        {/* Row 1: Back + Title + Right actions */}
+        <div className="flex items-center justify-between gap-2 sm:gap-3 px-3 sm:px-6 py-2.5">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
             <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => router.push("/dashboard")}
+                aria-label="Back to dashboard"
+                className="shrink-0"
               >
-                ← Back
+                <ArrowLeft className="w-4 h-4 sm:mr-1" />
+                <span className="hidden sm:inline">Back</span>
               </Button>
             </motion.div>
-            <h1 style={{ fontSize: "1.25rem", fontWeight: 700, margin: 0 }}>
-              Certificate Generator
+            <h1 className="text-base sm:text-lg lg:text-xl font-bold truncate">
+              <span className="hidden md:inline">Certificate </span>Generator
             </h1>
           </div>
 
-          {/* Center: Quick Actions */}
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "0.5rem",
-              flex: 1,
-              justifyContent: "center",
-            }}
-          >
-            {/* Template Selection */}
-            <div
-              style={{
-                display: "flex",
-                gap: "0.5rem",
-                alignItems: "center",
-                flexWrap: "wrap",
-              }}
-              data-tour="template-selector"
-            >
-              <span
-                style={{
-                  fontSize: "0.875rem",
-                  fontWeight: 500,
-                  color: "#6b7280",
-                }}
-              >
-                Template:
-              </span>
-              {loadingTemplates ? (
-                <span style={{ fontSize: "0.75rem", color: "#9ca3af" }}>
-                  Loading...
-                </span>
-              ) : availableTemplates.length > 0 ? (
-                <>
-                  {availableTemplates.map((t, index) => (
-                    <motion.div
-                      key={t.id}
-                      initial={{ opacity: 0, scale: 0.8 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      transition={{ delay: index * 0.05 }}
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                    >
-                      <Button
-                        variant={template?.id === t.id ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => setTemplate(t)}
-                      >
-                        {t.name}
-                      </Button>
-                    </motion.div>
-                  ))}
-                </>
-              ) : (
-                <span style={{ fontSize: "0.75rem", color: "#9ca3af" }}>
-                  No templates found
-                </span>
-              )}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => templateInputRef.current?.click()}
-              >
-                <Upload className="w-4 h-4 mr-1" />
-                Custom
-              </Button>
-              <input
-                ref={templateInputRef}
-                type="file"
-                accept="image/*"
-                onChange={handleTemplateUpload}
-                style={{ display: "none" }}
-              />
-            </div>
-
-            <div
-              style={{
-                width: "1px",
-                height: "24px",
-                backgroundColor: "#e5e7eb",
-                margin: "0 0.5rem",
-              }}
-            />
-
-            {/* Add Elements */}
-            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-              <Button
-                size="sm"
-                onClick={addTextElement}
-                disabled={!template}
-                data-tour="add-text-btn"
-              >
-                <Plus className="w-4 h-4 mr-1" />
-                Add Text
-              </Button>
-            </motion.div>
-            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={!template || imageElements.length >= 5}
-                data-tour="add-image-btn"
-                className="hover:bg-blue-50 hover:border-blue-400 dark:hover:bg-blue-900/30 dark:hover:border-blue-500"
-              >
-                <ImageIcon className="w-4 h-4 mr-1" />
-                Add Image{" "}
-                {imageElements.length > 0 && `(${imageElements.length}/5)`}
-              </Button>
-            </motion.div>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              onChange={handleImageUpload}
-              style={{ display: "none" }}
-            />
-          </div>
-
-          {/* Right: User + Logout */}
-          <div
-            style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}
-          >
+          {/* Desktop: inline actions */}
+          <div className="hidden lg:flex items-center gap-1 shrink-0">
             <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={handleShowEmailTutorial}
-                style={{ color: "#10b981" }}
+                onClick={() => setShowEmailGuide(true)}
+                className="text-emerald-600 hover:text-emerald-700 dark:text-emerald-400"
               >
                 <Mail className="w-4 h-4 mr-1" />
                 Email Guide
@@ -620,14 +336,25 @@ function GeneratorContent() {
               <Button
                 variant="ghost"
                 size="sm"
+                onClick={handleStartBatchTour}
+                className="text-purple-600 hover:text-purple-700 dark:text-purple-400"
+              >
+                <Layers className="w-4 h-4 mr-1" />
+                Batch Tour
+              </Button>
+            </motion.div>
+            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={handleShowTour}
-                style={{ color: "#3b82f6" }}
+                className="text-blue-600 hover:text-blue-700 dark:text-blue-400"
               >
                 <HelpCircle className="w-4 h-4 mr-1" />
                 Help
               </Button>
             </motion.div>
-            <span style={{ fontSize: "0.875rem", color: "#6b7280" }}>
+            <span className="text-sm text-gray-500 dark:text-gray-400 max-w-[140px] truncate ml-2">
               {user?.name}
             </span>
             <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
@@ -637,24 +364,166 @@ function GeneratorContent() {
               </Button>
             </motion.div>
           </div>
+
+          {/* Mobile/Tablet: collapsed actions */}
+          <div className="lg:hidden shrink-0">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="sm" aria-label="More actions">
+                  <MoreVertical className="w-5 h-5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                {user?.name && (
+                  <>
+                    <div className="px-2 py-1.5 text-xs text-gray-500 dark:text-gray-400">
+                      Signed in as{" "}
+                      <span className="font-medium text-gray-700 dark:text-gray-200">
+                        {user.name}
+                      </span>
+                    </div>
+                    <DropdownMenuSeparator />
+                  </>
+                )}
+                <DropdownMenuItem
+                  onClick={() => setShowEmailGuide(true)}
+                  className="text-emerald-600 dark:text-emerald-400"
+                >
+                  <Mail className="w-4 h-4 mr-2" />
+                  Email Guide
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={handleStartBatchTour}
+                  className="text-purple-600 dark:text-purple-400"
+                >
+                  <Layers className="w-4 h-4 mr-2" />
+                  Batch Tour
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={handleShowTour}
+                  className="text-blue-600 dark:text-blue-400"
+                >
+                  <HelpCircle className="w-4 h-4 mr-2" />
+                  Help
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={logout}>
+                  <LogOut className="w-4 h-4 mr-2" />
+                  Logout
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </div>
+
+        {/* Row 2: Template selector + element actions */}
+        <div className="border-t border-gray-100 dark:border-zinc-700/50 px-3 sm:px-6 py-2 flex items-center gap-2">
+          <div
+            data-tour="template-selector"
+            className="flex items-center gap-2 overflow-x-auto flex-1 min-w-0 py-1 -my-1"
+          >
+            <span className="text-sm font-medium text-gray-500 dark:text-gray-400 shrink-0">
+              Template:
+            </span>
+            {loadingTemplates ? (
+              <span className="text-xs text-gray-400 shrink-0">Loading...</span>
+            ) : availableTemplates.length > 0 ? (
+              availableTemplates.map((t, index) => (
+                <motion.div
+                  key={t.id}
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: Math.min(index, 8) * 0.04 }}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  className="shrink-0"
+                >
+                  <Button
+                    variant={template?.id === t.id ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setTemplate(t)}
+                  >
+                    {t.name}
+                  </Button>
+                </motion.div>
+              ))
+            ) : (
+              <span className="text-xs text-gray-400 shrink-0">
+                No templates found
+              </span>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => templateInputRef.current?.click()}
+              className="shrink-0"
+            >
+              <Upload className="w-4 h-4 sm:mr-1" />
+              <span className="hidden sm:inline">Custom</span>
+            </Button>
+            <input
+              ref={templateInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleTemplateUpload}
+              className="hidden"
+            />
+          </div>
+
+          <div className="hidden sm:block w-px h-6 bg-gray-200 dark:bg-zinc-700 shrink-0" />
+
+          <div className="flex items-center gap-2 shrink-0">
+            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+              <Button
+                size="sm"
+                onClick={addTextElement}
+                disabled={!template}
+                data-tour="add-text-btn"
+                aria-label="Add text"
+              >
+                <Plus className="w-4 h-4 sm:mr-1" />
+                <span className="hidden sm:inline">Add Text</span>
+              </Button>
+            </motion.div>
+            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={!template || imageElements.length >= 5}
+                data-tour="add-image-btn"
+                aria-label="Add image"
+                className="hover:bg-blue-50 hover:border-blue-400 dark:hover:bg-blue-900/30 dark:hover:border-blue-500"
+              >
+                <ImageIcon className="w-4 h-4 sm:mr-1" />
+                <span className="hidden sm:inline">
+                  Add Image
+                  {imageElements.length > 0 &&
+                    ` (${imageElements.length}/5)`}
+                </span>
+                {imageElements.length > 0 && (
+                  <span className="sm:hidden text-xs ml-1">
+                    {imageElements.length}/5
+                  </span>
+                )}
+              </Button>
+            </motion.div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleImageUpload}
+              className="hidden"
+            />
+          </div>
         </div>
       </motion.header>
 
       {/* Main Content Area */}
-      <div
-        style={{
-          flex: 1,
-          display: "flex",
-          overflow: "hidden",
-        }}
-      >
-        {/* Canvas Area - Left Side */}
+      <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
+        {/* Canvas Area - Top on mobile, Left on desktop */}
         <div
-          style={{
-            flex: 1,
-            overflow: "auto",
-            padding: "1.5rem",
-          }}
+          className="flex-1 overflow-auto p-4 sm:p-6 min-h-[60vh] lg:min-h-0"
           data-tour="canvas-area"
         >
           <div
@@ -726,16 +595,9 @@ function GeneratorContent() {
           </div>
         </div>
 
-        {/* Properties Panel - Right Side */}
+        {/* Properties Panel - Bottom on mobile, Right on desktop */}
         <div
-          style={{
-            width: "380px",
-            backgroundColor: "#ffffff",
-            borderLeft: "1px solid #e5e7eb",
-            display: "flex",
-            flexDirection: "column",
-            overflow: "hidden",
-          }}
+          className="w-full lg:w-[380px] lg:shrink-0 bg-white dark:bg-zinc-800 border-t lg:border-t-0 lg:border-l border-gray-200 dark:border-zinc-700 flex flex-col overflow-hidden max-h-[60vh] lg:max-h-none"
           data-tour="properties-panel"
         >
           {/* Tab Switcher */}
@@ -994,6 +856,7 @@ function GeneratorContent() {
                 template={template}
                 textElements={textElements}
                 imageElements={imageElements}
+                onStartTutorial={() => setShowBatchTour(true)}
               />
             </div>
           )}

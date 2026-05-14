@@ -26,11 +26,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!status || !["sent", "failed", "pending"].includes(status)) {
+    const allowed = ["sent", "failed", "pending", "sending", "cancelled"];
+    if (!status || !allowed.includes(status)) {
       return NextResponse.json(
         {
-          error:
-            "Invalid 'status' field (must be 'sent', 'failed', or 'pending')",
+          error: `Invalid 'status' field (must be one of: ${allowed.join(", ")})`,
         },
         { status: 400 }
       );

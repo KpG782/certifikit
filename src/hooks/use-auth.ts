@@ -1,56 +1,82 @@
-// src/hooks/use-auth.ts
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
 import {
-  login as authLogin,
-  logout as authLogout,
-  getCurrentUser,
-  isAuthenticated as checkAuth,
-  User,
+  mapUser,
+  signOut as supaSignOut,
+  signInWithGoogle as supaSignInWithGoogle,
+  signInWithEmail as supaSignInWithEmail,
+  signUpWithEmail as supaSignUpWithEmail,
+  type User,
 } from "@/lib/auth";
 
 export const useAuth = () => {
   const [user, setUser] = useState<User | null>(null);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
 
   useEffect(() => {
-    // Check authentication status on mount
-    const authenticated = checkAuth();
-    const currentUser = getCurrentUser();
+    const supabase = createClient();
+    let mounted = true;
 
-    setIsAuthenticated(authenticated);
-    setUser(currentUser);
-    setIsLoading(false);
+    // Hydrate from any existing session, then subscribe to changes.
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!mounted) return;
+      setUser(mapUser(session?.user ?? null));
+      setIsLoading(false);
+    });
+
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!mounted) return;
+      setUser(mapUser(session?.user ?? null));
+      setIsLoading(false);
+    });
+
+    return () => {
+      mounted = false;
+      sub.subscription.unsubscribe();
+    };
   }, []);
 
-  const login = (username: string, password: string): boolean => {
-    const userData = authLogin(username, password);
-
-    if (userData) {
-      setUser(userData);
-      setIsAuthenticated(true);
-      return true;
-    }
-
-    return false;
-  };
-
-  const logout = () => {
-    authLogout();
+  const logout = useCallback(async () => {
+    await supaSignOut();
     setUser(null);
-    setIsAuthenticated(false);
     router.push("/login");
-  };
+  }, [router]);
+
+  const signInWithGoogle = useCallback(async (next?: string) => {
+    await supaSignInWithGoogle(next);
+  }, []);
+
+  const signInWithEmail = useCallback(
+    async (email: string, password: string) => {
+      const u = await supaSignInWithEmail(email, password);
+      setUser(u);
+      return u;
+    },
+    []
+  );
+
+  const signUpWithEmail = useCallback(
+    async (email: string, password: string, fullName?: string) => {
+      const result = await supaSignUpWithEmail(email, password, fullName);
+      if (result.user && !result.needsEmailConfirmation) {
+        setUser(result.user);
+      }
+      return result;
+    },
+    []
+  );
 
   return {
     user,
-    isAuthenticated,
+    isAuthenticated: !!user,
     isLoading,
-    login,
     logout,
+    signInWithGoogle,
+    signInWithEmail,
+    signUpWithEmail,
   };
 };

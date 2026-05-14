@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import pool from "@/lib/db";
+import {
+  getEmailQueueByIds,
+  updateEmailQueueStatus,
+} from "@/lib/db";
 
 export async function POST(request: NextRequest) {
   try {
@@ -9,7 +12,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "No items selected" }, { status: 400 });
     }
 
-    // Limit batch size to 50 to prevent server overload
+    // 50-item cap matches the queue cap and keeps the bulk payload bounded.
     if (ids.length > 50) {
       return NextResponse.json(
         {
@@ -22,117 +25,111 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const n8nWebhookUrl = process.env.N8N_WEBHOOK_URL;
-    if (!n8nWebhookUrl) {
+    // Prefer the bulk webhook; fall back to the legacy single URL so existing
+    // deployments don't break before the env var is renamed.
+    const bulkUrl =
+      process.env.N8N_BULK_WEBHOOK_URL || process.env.N8N_WEBHOOK_URL;
+    if (!bulkUrl) {
       return NextResponse.json(
         { error: "Email service not configured" },
         { status: 500 }
       );
     }
 
-    // Fetch items to send from PostgreSQL
-    const placeholders = ids.map((_, i) => `$${i + 1}`).join(",");
-    const query = `
-      SELECT id, recipient_email, recipient_name, subject, message, certificate_image, status
-      FROM email_queue
-      WHERE id IN (${placeholders})
-    `;
-    const { rows: items } = await pool.query(query, ids);
+    // Only `pending` rows are eligible. Anything else (sent / sending / failed /
+    // cancelled) is skipped so a stale selection can't trample an in-flight job.
+    const allItems = await getEmailQueueByIds(ids);
+    const items = allItems.filter((it) => it.status === "pending");
+    const skipped = allItems
+      .filter((it) => it.status !== "pending")
+      .map((it) => ({ id: it.id, status: it.status }));
 
-    const results = {
-      success: 0,
-      failed: 0,
-      errors: [] as Array<{ id: number; error: string }>,
+    if (items.length === 0) {
+      return NextResponse.json(
+        {
+          success: true,
+          message: "No pending items to send",
+          results: { success: 0, failed: 0, skipped, errors: [] },
+        },
+        { status: 200 }
+      );
+    }
+
+    // Optimistically mark every eligible item as "sending" before we POST,
+    // so the UI can't double-send while the webhook is in flight.
+    await Promise.all(
+      items.map((it) =>
+        updateEmailQueueStatus({ id: it.id, status: "sending" })
+      )
+    );
+
+    // The bulk workflow's `Split Items` node splits on `body.items`, so we
+    // POST a single payload with all items rather than looping per item.
+    const payload = {
+      items: items.map((it) => ({
+        id: it.id,
+        recipient_email: it.recipientEmail,
+        recipient_name: it.recipientName,
+        certificate_image: it.certificateImage,
+        subject: it.subject,
+        message: it.message,
+      })),
     };
 
-    // Send each email
-    for (const item of items) {
-      try {
-        // Update status to sending
-        await pool.query("UPDATE email_queue SET status = $1 WHERE id = $2", [
-          "sending",
-          item.id,
-        ]);
-
-        // Send to n8n webhook with the database ID
-        // Prepare payload matching n8n code format
-        const payload: any = {
-          id: item.id, // Include database ID for n8n to call back
-          recipient_email: item.recipient_email,
-          recipient_name: item.recipient_name,
-          certificate_image: item.certificate_image,
-          subject: item.subject,
-          message: item.message,
-          timestamp: new Date().toISOString(),
-        };
-
-        // Add default branding colors (can be overridden per email)
-        payload.primary_color =
-          payload.primary_color || "hsla(220, 90%, 56%, 1)"; // Default Blue
-        payload.secondary_color =
-          payload.secondary_color || "hsla(220, 90%, 35%, 1)"; // Dark Blue
-        payload.accent_color = payload.accent_color || "hsla(45, 100%, 51%, 1)"; // Gold
-        payload.highlight_color =
-          payload.highlight_color || "hsla(352, 99%, 44%, 1)"; // Red
-
-        // Optional: Add custom branding for specific presets
-        if (
-          item.subject?.includes("University") ||
-          item.subject?.includes("Achievement")
-        ) {
-          payload.email_header_title =
-            payload.email_header_title || "Certificate of Achievement";
-          payload.email_header_subtitle =
-            payload.email_header_subtitle || "Your Organization";
-          payload.email_footer_company =
-            payload.email_footer_company || "YOUR ORGANIZATION";
-          payload.email_footer_dept =
-            payload.email_footer_dept || "Certificate Delivery System";
-        }
-
-        const response = await fetch(n8nWebhookUrl, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-
-        if (response.ok) {
-          // Webhook accepted - update to sent immediately
-          await pool.query(
-            "UPDATE email_queue SET status = $1, sent_at = $2 WHERE id = $3",
-            ["sent", new Date().toISOString(), item.id]
-          );
-          results.success++;
-        } else {
-          const errorText = await response.text();
-          // If webhook itself fails, mark as failed immediately
-          await pool.query(
-            "UPDATE email_queue SET status = $1, error_message = $2 WHERE id = $3",
-            ["failed", `Webhook error: ${errorText}`, item.id]
-          );
-          results.failed++;
-          results.errors.push({ id: item.id, error: errorText });
-        }
-      } catch (error) {
-        const errorMsg =
-          error instanceof Error ? error.message : "Unknown error";
-        // If network error, mark as failed immediately
-        await pool.query(
-          "UPDATE email_queue SET status = $1, error_message = $2 WHERE id = $3",
-          ["failed", `Network error: ${errorMsg}`, item.id]
-        );
-        results.failed++;
-        results.errors.push({ id: item.id, error: errorMsg });
+    let webhookOk = false;
+    let webhookError = "";
+    try {
+      const response = await fetch(bulkUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (response.ok) {
+        webhookOk = true;
+      } else {
+        const errBody = await response.text();
+        webhookError = `Webhook ${response.status}: ${errBody.slice(0, 500)}`;
       }
+    } catch (err) {
+      webhookError = `Network error: ${
+        err instanceof Error ? err.message : String(err)
+      }`;
     }
+
+    // All-or-nothing: the bulk webhook currently returns aggregate success only.
+    // If/when the workflow returns per-item results, this branch can be replaced
+    // with a per-id update loop.
+    const now = new Date().toISOString();
+    await Promise.all(
+      items.map((it) =>
+        updateEmailQueueStatus({
+          id: it.id,
+          status: webhookOk ? "sent" : "failed",
+          sentAt: webhookOk ? now : null,
+          errorMessage: webhookOk ? null : webhookError,
+        })
+      )
+    );
+
+    const skippedSuffix =
+      skipped.length > 0 ? ` (${skipped.length} skipped, not pending)` : "";
 
     return NextResponse.json(
       {
-        success: true,
-        message: `Sent ${results.success}/${items.length} emails`,
-        results,
+        success: webhookOk,
+        message: webhookOk
+          ? `Sent ${items.length} emails${skippedSuffix}`
+          : `Failed to send ${items.length} emails${skippedSuffix}`,
+        results: {
+          success: webhookOk ? items.length : 0,
+          failed: webhookOk ? 0 : items.length,
+          skipped,
+          errors: webhookOk
+            ? []
+            : items.map((it) => ({ id: it.id, error: webhookError })),
+        },
       },
-      { status: 200 }
+      { status: webhookOk ? 200 : 502 }
     );
   } catch (error) {
     console.error("Batch send error:", error);

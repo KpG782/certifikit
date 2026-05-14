@@ -29,11 +29,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get n8n webhook URL from environment variables
-    const n8nWebhookUrl = process.env.N8N_WEBHOOK_URL;
+    // Single-send webhook. Falls back to the legacy N8N_WEBHOOK_URL so
+    // existing deployments don't break before the env var is renamed.
+    const n8nWebhookUrl =
+      process.env.N8N_SINGLE_WEBHOOK_URL || process.env.N8N_WEBHOOK_URL;
 
     if (!n8nWebhookUrl) {
-      console.error("N8N_WEBHOOK_URL not configured");
+      console.error(
+        "N8N_SINGLE_WEBHOOK_URL not configured (legacy N8N_WEBHOOK_URL also unset)"
+      );
       return NextResponse.json(
         { error: "Email service not configured" },
         { status: 500 }

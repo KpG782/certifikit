@@ -115,21 +115,22 @@ function TutorialsContent() {
         className="bg-white dark:bg-zinc-800 shadow-sm border-b border-gray-200 dark:border-zinc-700 sticky top-0 z-10"
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 lg:py-6">
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 sm:gap-4">
             <Button
               variant="ghost"
               size="sm"
               onClick={() => router.push("/dashboard")}
-              className="gap-2"
+              aria-label="Back to dashboard"
+              className="shrink-0 gap-2"
             >
               <ArrowLeft className="w-4 h-4" />
-              Back to Dashboard
+              <span className="hidden sm:inline">Back to Dashboard</span>
             </Button>
-            <div className="flex-1">
-              <h1 className="text-2xl sm:text-3xl font-bold">
-                Video Tutorials
+            <div className="flex-1 min-w-0">
+              <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold truncate">
+                <span className="hidden md:inline">Video </span>Tutorials
               </h1>
-              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+              <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mt-1 truncate">
                 Learn how to use CertifiKit with step-by-step video guides
               </p>
             </div>

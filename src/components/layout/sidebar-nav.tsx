@@ -52,7 +52,7 @@ export default function SidebarNav() {
       initial={{ x: -100, opacity: 0 }}
       animate={{ x: 0, opacity: 1 }}
       transition={{ duration: 0.4, type: "spring" }}
-      className="fixed left-4 top-1/2 -translate-y-1/2 z-50 flex flex-col gap-3 bg-white dark:bg-zinc-800 rounded-2xl shadow-2xl p-3 border border-gray-200 dark:border-zinc-700"
+      className="hidden md:flex fixed left-4 top-1/2 -translate-y-1/2 z-50 flex-col gap-3 bg-white dark:bg-zinc-800 rounded-2xl shadow-2xl p-3 border border-gray-200 dark:border-zinc-700"
     >
       {navigationItems.map((item) => {
         const Icon = item.icon;

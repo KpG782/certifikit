@@ -78,6 +78,7 @@ export default function QueueFilters({
             <SelectItem value="sending">Sending</SelectItem>
             <SelectItem value="sent">Sent</SelectItem>
             <SelectItem value="failed">Failed</SelectItem>
+            <SelectItem value="cancelled">Cancelled</SelectItem>
           </SelectContent>
         </Select>
 
