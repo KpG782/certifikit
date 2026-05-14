@@ -4,6 +4,16 @@ import {
   updateEmailQueueStatus,
 } from "@/lib/db";
 
+/**
+ * POST /api/batch-send
+ * Body: { ids: number[] }
+ *
+ * Sends queued emails sequentially, one per n8n webhook call. Each row
+ * transitions pending → sending → sent/failed on its own, so the queue
+ * page's 5s polling shows them flip live in order. A failure on one item
+ * does NOT poison the others — the loop continues and records per-item
+ * errors on the failed rows.
+ */
 export async function POST(request: NextRequest) {
   try {
     const { ids } = await request.json();
@@ -12,7 +22,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "No items selected" }, { status: 400 });
     }
 
-    // 50-item cap matches the queue cap and keeps the bulk payload bounded.
     if (ids.length > 50) {
       return NextResponse.json(
         {
@@ -25,26 +34,25 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Prefer the bulk webhook; fall back to the legacy single URL so existing
-    // deployments don't break before the env var is renamed.
-    const bulkUrl =
+    const webhookUrl =
       process.env.N8N_BULK_WEBHOOK_URL || process.env.N8N_WEBHOOK_URL;
-    if (!bulkUrl) {
+    if (!webhookUrl) {
       return NextResponse.json(
-        { error: "Email service not configured" },
+        {
+          error:
+            "N8N_BULK_WEBHOOK_URL not configured (legacy N8N_WEBHOOK_URL also unset)",
+        },
         { status: 500 }
       );
     }
 
-    // Only `pending` rows are eligible. Anything else (sent / sending / failed /
-    // cancelled) is skipped so a stale selection can't trample an in-flight job.
     const allItems = await getEmailQueueByIds(ids);
-    const items = allItems.filter((it) => it.status === "pending");
+    const pending = allItems.filter((it) => it.status === "pending");
     const skipped = allItems
       .filter((it) => it.status !== "pending")
       .map((it) => ({ id: it.id, status: it.status }));
 
-    if (items.length === 0) {
+    if (pending.length === 0) {
       return NextResponse.json(
         {
           success: true,
@@ -55,81 +63,103 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Optimistically mark every eligible item as "sending" before we POST,
-    // so the UI can't double-send while the webhook is in flight.
-    await Promise.all(
-      items.map((it) =>
-        updateEmailQueueStatus({ id: it.id, status: "sending" })
-      )
+    let successCount = 0;
+    let failedCount = 0;
+    const errors: { id: number; error: string }[] = [];
+
+    const batchStart = Date.now();
+    console.log(
+      `[batch-send] starting: ${pending.length} pending, ${skipped.length} skipped`
     );
 
-    // The bulk workflow's `Split Items` node splits on `body.items`, so we
-    // POST a single payload with all items rather than looping per item.
-    const payload = {
-      items: items.map((it) => ({
-        id: it.id,
-        recipient_email: it.recipientEmail,
-        recipient_name: it.recipientName,
-        certificate_image: it.certificateImage,
-        subject: it.subject,
-        message: it.message,
-      })),
-    };
+    for (let i = 0; i < pending.length; i++) {
+      const item = pending[i];
+      const itemStart = Date.now();
+      const tag = `[batch-send ${i + 1}/${pending.length} id=${item.id}]`;
+      console.log(
+        `${tag} → sending to ${item.recipientEmail} (${item.recipientName})`
+      );
 
-    let webhookOk = false;
-    let webhookError = "";
-    try {
-      const response = await fetch(bulkUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      if (response.ok) {
-        webhookOk = true;
-      } else {
-        const errBody = await response.text();
-        webhookError = `Webhook ${response.status}: ${errBody.slice(0, 500)}`;
+      await updateEmailQueueStatus({ id: item.id, status: "sending" });
+
+      const payload = {
+        id: item.id,
+        recipient_email: item.recipientEmail,
+        recipient_name: item.recipientName,
+        certificate_image: item.certificateImage,
+        subject: item.subject,
+        message: item.message,
+        timestamp: new Date().toISOString(),
+      };
+
+      try {
+        const response = await fetch(webhookUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        const ms = Date.now() - itemStart;
+
+        if (response.ok) {
+          await updateEmailQueueStatus({
+            id: item.id,
+            status: "sent",
+            sentAt: new Date().toISOString(),
+          });
+          successCount++;
+          console.log(`${tag} ✓ sent in ${ms}ms`);
+        } else {
+          const errBody = await response.text();
+          const errMsg = `Webhook ${response.status}: ${errBody.slice(0, 500)}`;
+          await updateEmailQueueStatus({
+            id: item.id,
+            status: "failed",
+            errorMessage: errMsg,
+          });
+          failedCount++;
+          errors.push({ id: item.id, error: errMsg });
+          console.error(`${tag} ✗ failed in ${ms}ms — ${errMsg}`);
+        }
+      } catch (err) {
+        const ms = Date.now() - itemStart;
+        const errMsg = `Network error: ${
+          err instanceof Error ? err.message : String(err)
+        }`;
+        await updateEmailQueueStatus({
+          id: item.id,
+          status: "failed",
+          errorMessage: errMsg,
+        });
+        failedCount++;
+        errors.push({ id: item.id, error: errMsg });
+        console.error(`${tag} ✗ network error in ${ms}ms — ${errMsg}`);
       }
-    } catch (err) {
-      webhookError = `Network error: ${
-        err instanceof Error ? err.message : String(err)
-      }`;
     }
 
-    // All-or-nothing: the bulk webhook currently returns aggregate success only.
-    // If/when the workflow returns per-item results, this branch can be replaced
-    // with a per-id update loop.
-    const now = new Date().toISOString();
-    await Promise.all(
-      items.map((it) =>
-        updateEmailQueueStatus({
-          id: it.id,
-          status: webhookOk ? "sent" : "failed",
-          sentAt: webhookOk ? now : null,
-          errorMessage: webhookOk ? null : webhookError,
-        })
-      )
+    const totalMs = Date.now() - batchStart;
+    const avg = pending.length > 0 ? Math.round(totalMs / pending.length) : 0;
+    console.log(
+      `[batch-send] done: ${successCount} sent, ${failedCount} failed in ${totalMs}ms (avg ${avg}ms/email)`
     );
 
     const skippedSuffix =
       skipped.length > 0 ? ` (${skipped.length} skipped, not pending)` : "";
 
+    const allOk = failedCount === 0;
     return NextResponse.json(
       {
-        success: webhookOk,
-        message: webhookOk
-          ? `Sent ${items.length} emails${skippedSuffix}`
-          : `Failed to send ${items.length} emails${skippedSuffix}`,
+        success: allOk,
+        message: allOk
+          ? `Sent ${successCount} emails${skippedSuffix}`
+          : `Sent ${successCount}, failed ${failedCount}${skippedSuffix}`,
         results: {
-          success: webhookOk ? items.length : 0,
-          failed: webhookOk ? 0 : items.length,
+          success: successCount,
+          failed: failedCount,
           skipped,
-          errors: webhookOk
-            ? []
-            : items.map((it) => ({ id: it.id, error: webhookError })),
+          errors,
         },
       },
-      { status: webhookOk ? 200 : 502 }
+      { status: allOk ? 200 : 207 }
     );
   } catch (error) {
     console.error("Batch send error:", error);

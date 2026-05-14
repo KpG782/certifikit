@@ -21,10 +21,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const n8nWebhookUrl = process.env.N8N_WEBHOOK_URL;
+    const n8nWebhookUrl =
+      process.env.N8N_SINGLE_WEBHOOK_URL || process.env.N8N_WEBHOOK_URL;
     if (!n8nWebhookUrl) {
       return NextResponse.json(
-        { error: "Email service not configured (N8N_WEBHOOK_URL missing)" },
+        {
+          error:
+            "N8N_SINGLE_WEBHOOK_URL not configured (legacy N8N_WEBHOOK_URL also unset)",
+        },
         { status: 500 }
       );
     }

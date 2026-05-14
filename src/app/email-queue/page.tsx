@@ -77,13 +77,15 @@ export default function EmailQueuePage() {
   useEffect(() => {
     fetchQueue();
 
-    // Auto-refresh every 5 seconds to show real-time status updates from n8n
+    // Poll faster (2s) while a batch is in flight so rows visibly flip
+    // pending → sending → sent one-by-one. Idle polling stays at 5s.
+    const intervalMs = isSending ? 2000 : 5000;
     const interval = setInterval(() => {
       fetchQueue();
-    }, 5000);
+    }, intervalMs);
 
     return () => clearInterval(interval);
-  }, [filters]);
+  }, [filters, isSending]);
 
   // Send selected emails
   const handleSendSelected = async () => {
@@ -95,6 +97,11 @@ export default function EmailQueuePage() {
     if (!confirmed) return;
 
     setIsSending(true);
+    const clientStart = performance.now();
+    console.log(
+      `[batch-send client] POST /api/batch-send for ${selectedIds.length} ids:`,
+      selectedIds
+    );
     try {
       const response = await fetch("/api/batch-send", {
         method: "POST",
@@ -103,13 +110,32 @@ export default function EmailQueuePage() {
       });
 
       const data = await response.json();
+      const elapsedMs = Math.round(performance.now() - clientStart);
+      console.log(
+        `[batch-send client] HTTP ${response.status} in ${elapsedMs}ms`,
+        data.results
+      );
 
       if (data.success) {
-        alert(data.message);
         setSelectedIds([]);
         fetchQueue();
+        alert(`${data.message} (${elapsedMs}ms)`);
       } else {
-        alert("Failed to send emails: " + data.error);
+        // Partial-success (207) also lands here — show counts so the user
+        // knows some went through even when others failed.
+        const r = data.results;
+        if (r && (r.success > 0 || r.failed > 0)) {
+          alert(
+            `Sent ${r.success}, failed ${r.failed} in ${elapsedMs}ms.` +
+              (r.errors?.length
+                ? `\nFirst error: ${r.errors[0].error}`
+                : "")
+          );
+          setSelectedIds([]);
+          fetchQueue();
+        } else {
+          alert("Failed to send emails: " + (data.error || data.message));
+        }
       }
     } catch (error) {
       console.error("Send error:", error);
