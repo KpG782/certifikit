@@ -32,7 +32,10 @@ export default function EmailQueuePage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
   const [viewItem, setViewItem] = useState<EmailQueueItem | null>(null);
-  const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
+  // Null until the first client-side fetch completes. Initializing with
+  // `new Date()` would mismatch between SSR and hydration (different
+  // wall clock + locale) and trip React #418.
+  const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
   const [showTour, setShowTour] = useState(false);
 
   // Auto-open the tour only when arriving from the Batch "Go to Email Queue"
@@ -49,8 +52,10 @@ export default function EmailQueuePage() {
     }
   }, []);
 
-  // Fetch queue items
-  const fetchQueue = async () => {
+  // Fetch queue items. `silent` skips the user-facing alert — used by
+  // the polling interval so transient blips (ERR_NETWORK_CHANGED on a
+  // wifi switch, etc.) don't spam the user every 2-5s.
+  const fetchQueue = async (silent = false) => {
     try {
       const params = new URLSearchParams();
       if (filters.status) params.append("status", filters.status);
@@ -68,7 +73,7 @@ export default function EmailQueuePage() {
       }
     } catch (error) {
       console.error("Failed to fetch queue:", error);
-      alert("Failed to load email queue");
+      if (!silent) alert("Failed to load email queue");
     } finally {
       setIsLoading(false);
     }
@@ -79,9 +84,10 @@ export default function EmailQueuePage() {
 
     // Poll faster (2s) while a batch is in flight so rows visibly flip
     // pending → sending → sent one-by-one. Idle polling stays at 5s.
+    // Pass silent=true so transient network errors don't alert.
     const intervalMs = isSending ? 2000 : 5000;
     const interval = setInterval(() => {
-      fetchQueue();
+      fetchQueue(true);
     }, intervalMs);
 
     return () => clearInterval(interval);
@@ -316,9 +322,14 @@ export default function EmailQueuePage() {
                   <span className="hidden xs:inline">Live (updates every 5s)</span>
                   <span className="xs:hidden">Live</span>
                 </motion.span>
-                <span className="hidden md:inline text-xs text-gray-500 dark:text-gray-400">
-                  Last refresh: {lastRefresh.toLocaleTimeString()}
-                </span>
+                {lastRefresh && (
+                  <span
+                    suppressHydrationWarning
+                    className="hidden md:inline text-xs text-gray-500 dark:text-gray-400"
+                  >
+                    Last refresh: {lastRefresh.toLocaleTimeString()}
+                  </span>
+                )}
               </div>
             </div>
           </div>
@@ -369,7 +380,7 @@ export default function EmailQueuePage() {
             selectedCount={selectedIds.length}
             onSendSelected={handleSendSelected}
             onDeleteSelected={handleDeleteSelected}
-            onRefresh={fetchQueue}
+            onRefresh={() => fetchQueue()}
             isSending={isSending}
           />
         </motion.div>
