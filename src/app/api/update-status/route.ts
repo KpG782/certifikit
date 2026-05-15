@@ -1,5 +1,30 @@
 import { NextRequest, NextResponse } from "next/server";
 import { updateEmailQueueStatus } from "@/lib/db";
+import { verifySignature, SIGNATURE_HEADER } from "@/lib/hmac";
+
+// n8n callback authentication. This route is allowlisted in middleware (no
+// user session), so it MUST verify the HMAC signature instead. Reads the raw
+// body once, verifies, then parses — re-reading a consumed body throws.
+async function readVerifiedBody(
+  request: NextRequest,
+): Promise<{ ok: true; json: unknown } | { ok: false; status: number; error: string }> {
+  const secret = process.env.N8N_WEBHOOK_SECRET;
+  const raw = await request.text();
+
+  if (!secret) {
+    // Fail closed: without a configured secret we cannot trust the caller.
+    return { ok: false, status: 500, error: "N8N_WEBHOOK_SECRET not configured" };
+  }
+  const sig = request.headers.get(SIGNATURE_HEADER);
+  if (!verifySignature(raw, sig, secret)) {
+    return { ok: false, status: 401, error: "Invalid or missing signature" };
+  }
+  try {
+    return { ok: true, json: JSON.parse(raw) };
+  } catch {
+    return { ok: false, status: 400, error: "Invalid JSON body" };
+  }
+}
 
 /**
  * API endpoint for n8n to update email status after sending
@@ -15,7 +40,16 @@ import { updateEmailQueueStatus } from "@/lib/db";
  */
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
+    const verified = await readVerifiedBody(request);
+    if (!verified.ok) {
+      return NextResponse.json({ error: verified.error }, { status: verified.status });
+    }
+    const body = (verified.json ?? {}) as {
+      id?: number;
+      status?: string;
+      errorMessage?: string | null;
+      sentAt?: string | null;
+    };
     const { id, status, errorMessage, sentAt } = body;
 
     // Validation
@@ -70,7 +104,11 @@ export async function POST(request: NextRequest) {
  */
 export async function PATCH(request: NextRequest) {
   try {
-    const body = await request.json();
+    const verified = await readVerifiedBody(request);
+    if (!verified.ok) {
+      return NextResponse.json({ error: verified.error }, { status: verified.status });
+    }
+    const body = (verified.json ?? {}) as { updates?: unknown };
     const { updates } = body;
 
     if (!Array.isArray(updates) || updates.length === 0) {

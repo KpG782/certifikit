@@ -3,6 +3,7 @@ import {
   getEmailQueueByIds,
   updateEmailQueueStatus,
 } from "@/lib/db";
+import { signBody, SIGNATURE_HEADER } from "@/lib/hmac";
 
 /**
  * POST /api/batch-send
@@ -93,10 +94,15 @@ export async function POST(request: NextRequest) {
       };
 
       try {
+        const bodyStr = JSON.stringify(payload);
+        const secret = process.env.N8N_WEBHOOK_SECRET;
         const response = await fetch(webhookUrl, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
+          headers: {
+            "Content-Type": "application/json",
+            ...(secret ? { [SIGNATURE_HEADER]: signBody(bodyStr, secret) } : {}),
+          },
+          body: bodyStr,
         });
         const ms = Date.now() - itemStart;
 
