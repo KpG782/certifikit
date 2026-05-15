@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useEmailQueueRealtime } from "@/hooks/use-email-queue-realtime";
 import { motion, AnimatePresence } from "framer-motion";
 import QueueStats from "@/components/email-queue/queue-stats";
 import QueueFilters from "@/components/email-queue/queue-filters";
@@ -79,19 +80,27 @@ export default function EmailQueuePage() {
     }
   };
 
+  // Realtime: instant updates when the email_queue table changes. Polling
+  // below becomes a slow safety-net (30s) when the channel is connected.
+  const { connected: realtimeConnected } = useEmailQueueRealtime(() => {
+    fetchQueue(true);
+  });
+
   useEffect(() => {
     fetchQueue();
 
-    // Poll faster (2s) while a batch is in flight so rows visibly flip
-    // pending → sending → sent one-by-one. Idle polling stays at 5s.
+    // Polling cadence:
+    //  - batch in flight: 2s (visible pending → sending → sent stepping)
+    //  - realtime connected: 30s (safety net only; realtime drives updates)
+    //  - realtime down: 5s (primary update mechanism)
     // Pass silent=true so transient network errors don't alert.
-    const intervalMs = isSending ? 2000 : 5000;
+    const intervalMs = isSending ? 2000 : realtimeConnected ? 30000 : 5000;
     const interval = setInterval(() => {
       fetchQueue(true);
     }, intervalMs);
 
     return () => clearInterval(interval);
-  }, [filters, isSending]);
+  }, [filters, isSending, realtimeConnected]);
 
   // Send selected emails
   const handleSendSelected = async () => {
