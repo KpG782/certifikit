@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import ProtectedRoute from "@/components/auth/protected-route";
@@ -23,12 +23,7 @@ function TemplatesContent() {
   const [previewTemplate, setPreviewTemplate] = useState<Template | null>(null);
   const [isDragging, setIsDragging] = useState(false);
 
-  // Load templates on mount
-  useEffect(() => {
-    loadTemplates();
-  }, []);
-
-  const loadTemplates = async () => {
+  const loadTemplates = useCallback(async () => {
     const foundTemplates: Template[] = [];
     let templateIndex = 1;
 
@@ -67,7 +62,14 @@ function TemplatesContent() {
     }
 
     setTemplates(foundTemplates);
-  };
+  }, []);
+
+  // Load templates on mount. loadTemplates is a stable useCallback ([] deps)
+  // and only setStates after async fetch work — no synchronous cascade.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadTemplates();
+  }, [loadTemplates]);
 
   const handleUploadTemplate = async (
     event: React.ChangeEvent<HTMLInputElement>

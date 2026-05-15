@@ -1,5 +1,6 @@
 "use client";
 
+import type { ComponentProps } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Table,
@@ -77,7 +78,11 @@ export default function QueueTable({
   const getStatusBadge = (status: string) => {
     const variants: Record<
       string,
-      { variant: any; className: string; icon?: string }
+      {
+        variant: ComponentProps<typeof Badge>["variant"];
+        className: string;
+        icon?: string;
+      }
     > = {
       pending: {
         variant: "secondary",

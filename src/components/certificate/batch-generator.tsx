@@ -607,8 +607,7 @@ Bob Johnson,bob.johnson@example.com,Manager,2024-01-17`;
           >
             <p>✅ File uploaded successfully!</p>
             <p style={{ fontSize: "0.75rem", marginTop: "0.25rem" }}>
-              Click "View Details" to see all recipients or "Generate" to create
-              certificates
+              {`Click "View Details" to see all recipients or "Generate" to create certificates`}
             </p>
           </div>
         </div>
@@ -681,7 +680,7 @@ Bob Johnson,bob.johnson@example.com,Manager,2024-01-17`;
               </p>
               <p className="text-xs text-emerald-700/90 dark:text-emerald-300/90">
                 {progress.total} certificate{progress.total > 1 ? "s" : ""} are
-                drafted. They won't send until you ship them from the queue.
+                drafted. They won&apos;t send until you ship them from the queue.
               </p>
             </div>
           </div>
@@ -898,8 +897,7 @@ Bob Johnson,bob.johnson@example.com,Manager,2024-01-17`;
               <div className="mt-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-3">
                 <p className="text-sm text-yellow-800 dark:text-yellow-300">
                   <strong>💡 Tip:</strong> Click on any recipient to
-                  select/deselect them. You can also use the "Select All" button
-                  above.
+                  {`select/deselect them. You can also use the "Select All" button above.`}
                 </p>
               </div>
             </div>

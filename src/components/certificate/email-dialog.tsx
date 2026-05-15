@@ -61,7 +61,7 @@ export default function EmailDialog({
 
     try {
       // Prepare payload
-      const payload: any = {
+      const payload: Record<string, unknown> = {
         email: email.trim(),
         subject: subject.trim(),
         message: message.trim(),
@@ -119,7 +119,7 @@ export default function EmailDialog({
                 Send Certificate via Email
               </h2>
               <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                Enter the recipient's email address and customize your message
+                Enter the recipient&apos;s email address and customize your message
               </p>
             </div>
             <button

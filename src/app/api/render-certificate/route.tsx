@@ -51,18 +51,12 @@ export async function POST(request: Request) {
     height: body.height ?? DEFAULT_HEIGHT,
   };
 
-  try {
-    return new ImageResponse(<CertificateImage {...input} />, {
-      width: input.width!,
-      height: input.height!,
-    });
-  } catch (err) {
-    return NextResponse.json(
-      {
-        error: "Render failed",
-        details: err instanceof Error ? err.message : "Unknown error",
-      },
-      { status: 500 },
-    );
-  }
+  // ImageResponse renders lazily, so a synchronous try/catch here would not
+  // catch render errors anyway (and eslint's react-hooks/error-boundaries
+  // flags JSX-in-try/catch). Construct the element first, then hand it off.
+  const element = CertificateImage(input);
+  return new ImageResponse(element, {
+    width: input.width!,
+    height: input.height!,
+  });
 }

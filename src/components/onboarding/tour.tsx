@@ -77,6 +77,9 @@ export default function OnboardingTour({ onComplete }: OnboardingTourProps) {
       const element = document.querySelector(currentStepData.target);
       if (element) {
         const rect = element.getBoundingClientRect();
+        // Known-safe: deps are [currentStep], not the rect, so this measures
+        // once per tour step and cannot cascade.
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setHighlightRect(rect);
         // Scroll element into view
         element.scrollIntoView({ behavior: "smooth", block: "center" });

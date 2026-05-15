@@ -101,6 +101,9 @@ export default function GeneratorTour({ onComplete }: GeneratorTourProps) {
     const element = document.querySelector(currentStepData.target);
     if (element) {
       const rect = element.getBoundingClientRect();
+      // Known-safe: deps are [currentStep, ...step config], not the rect, so
+      // this measures once per tour step and cannot cascade.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setHighlightRect(rect);
 
       // Calculate tooltip position based on step position preference

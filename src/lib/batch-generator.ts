@@ -27,8 +27,8 @@ export async function parseRecipientsFile(
           );
         }
 
-        const recipients = data.recipients.map(
-          (recipient: any, index: number) => {
+        const recipients = (data.recipients as Record<string, unknown>[]).map(
+          (recipient, index: number) => {
             if (!recipient.name || typeof recipient.name !== "string") {
               throw new Error(
                 `Recipient at index ${index} is missing a valid "name" field`
@@ -48,9 +48,10 @@ export async function parseRecipientsFile(
             return {
               name: recipient.name,
               email: recipient.email,
-              title: recipient.title || "",
-              date: recipient.date || "",
-              customFields: recipient.customFields || {},
+              title: typeof recipient.title === "string" ? recipient.title : "",
+              date: typeof recipient.date === "string" ? recipient.date : "",
+              customFields:
+                (recipient.customFields as Record<string, string>) || {},
             };
           }
         );
@@ -134,7 +135,7 @@ function drawSmartText(
 
     // FIXED: Use element.maxWidth if specified, otherwise fallback to 80% of template width
     const maxWidth = element.maxWidth || templateWidth * 0.8;
-    let x = element.position.x;
+    const x = element.position.x;
 
     if (element.textAlign === "center") {
       // For center alignment, position.x is the center point

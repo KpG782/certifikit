@@ -200,7 +200,7 @@ function TutorialsContent() {
                   {/* Steps */}
                   <div className="mt-4 mb-4">
                     <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-2">
-                      What you'll learn:
+                      What you&apos;ll learn:
                     </p>
                     <ul className="space-y-1.5">
                       {tutorial.steps.map((step, idx) => (

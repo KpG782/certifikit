@@ -10,7 +10,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Search, Filter, X } from "lucide-react";
-import { EmailQueueFilters } from "@/types/email-queue";
+import { EmailQueueFilters, EmailStatus } from "@/types/email-queue";
 
 interface QueueFiltersProps {
   filters: EmailQueueFilters;
@@ -65,7 +65,7 @@ export default function QueueFilters({
           onValueChange={(value) =>
             onFiltersChange({
               ...filters,
-              status: value === "all" ? undefined : (value as any),
+              status: value === "all" ? undefined : (value as EmailStatus),
             })
           }
         >

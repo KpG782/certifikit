@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Prepare payload for n8n webhook (matching n8n code format)
-    const payload: any = {
+    const payload: Record<string, unknown> = {
       recipient_email: email,
       recipient_name: recipientName || "Recipient",
       certificate_image: certificateImage,

@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Standalone one-off Node script — not part of any build (see CLAUDE.md).
+    "diagnose.js",
   ]),
 ]);
 

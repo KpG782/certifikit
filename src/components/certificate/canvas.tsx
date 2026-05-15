@@ -173,7 +173,7 @@ export default function CertificateCanvas({
         const textWidth = metrics.width;
 
         const maxWidth = element.maxWidth || template.width * 0.8;
-        let x = element.position.x;
+        const x = element.position.x;
 
         if (element.textAlign === "center") {
           ctx.textAlign = "center";
